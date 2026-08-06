@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Admin - Instant Relay</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 520px; margin: 20px auto; padding: 0 15px; background: #121212; color: #efefef; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2d2d2d; }
+        input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 6px; border: none; box-sizing: border-box; font-size: 16px; }
+        input { background: #2d2d2d; color: #fff; }
+        button { background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
+        button.disconnect { background: #dc2626; }
+        #liveBox { background: #064e3b; color: #6ee7b7; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; border: 1px dashed #34d399; }
+        #logs { background: #0a0a0a; padding: 10px; border-radius: 6px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #222; }
+        .log-ok { color: #4ade80; }
+        .log-err { color: #f87171; }
+        .status { font-weight: bold; color: #facc15; }
+    </style>
+</head>
+<body>
+    <h2>🎮 Shadow Admin - Live Relay</h2>
+
+    <!-- 1. Подключение -->
+    <div class="card">
+        <label>Секретный токен (API_SECRET_KEY):</label>
+        <input type="password" id="token" placeholder="Введите ключ из .env">
+        <button id="connectBtn" onclick="toggleConnect()">Подключиться</button>
+        <div>Статус: <span id="status" class="status">Отключено</span></div>
+    </div>
+
+    <!-- 2. Индикатор живого режима -->
+    <div id="liveBox">
+        ⚡ РЕЖИМ МГНОВЕННОГО ВВОДА АКТИВЕН ⚡<br>
+        <span style="font-size: 12px; font-weight: normal;">Любые нажатия на Bluetooth-клавиатуре улетают на ПК (без Enter)</span>
+    </div>
+
+    <!-- 3. Ручной ввод предложений целиком -->
+    <div class="card">
+        <label>Отправить целое предложение разом (type_text):</label>
+        <div style="display: flex; gap: 8px;">
+            <input type="text" id="wordInput" placeholder="Привет с дивана...">
+            <button onclick="sendWord()" style="width: 120px; margin: 6px 0;">Send</button>
+        </div>
+    </div>
+
+    <!-- Логи -->
+    <h3>Логи команд:</h3>
+    <div id="logs"></div>
+
+    <script>
+        let ws = null;
+        const pressedKeys = new Set();
+
+        // Маппер: переводит JS-названия клавиш в формат PyAutoGUI
+        function mapKey(key) {
+            const map = {
+                " ": "space",
+                "escape": "esc",
+                "arrowup": "up",
+                "arrowdown": "down",
+                "arrowleft": "left",
+                "arrowright": "right",
+                "control": "ctrl"
+            };
+            return map[key] || key;
+        }
+
+        function log(msg, isError = false) {
+            const logs = document.getElementById("logs");
+            const div = document.createElement("div");
+            div.className = isError ? "log-err" : "log-ok";
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logs.prepend(div);
+        }
+
+        function toggleConnect() {
+            if (ws) {
+                ws.close();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const token = document.getElementById("token").value;
+            if (!token) return alert("Введите токен!");
+
+            const host = window.location.host;
+            ws = new WebSocket(`ws://${host}/ws/execute?token=${encodeURIComponent(token)}`);
+
+            ws.onopen = () => {
+                document.getElementById("status").textContent = "Подключено 🟢";
+                document.getElementById("status").style.color = "#4ade80";
+                document.getElementById("connectBtn").textContent = "Отключиться";
+                document.getElementById("connectBtn").className = "disconnect";
+                document.getElementById("liveBox").style.display = "block";
+                log("WebSocket канал открыт");
+            };
+
+            ws.onmessage = (event) => {
+                const res = JSON.parse(event.data);
+                if (res.status === "error") {
+                    log(`ОШИБКА: ${res.message}`, true);
+                }
+            };
+
+            ws.onclose = (e) => {
+                document.getElementById("status").textContent = "Отключено 🔴";
+                document.getElementById("status").style.color = "#f87171";
+                document.getElementById("connectBtn").textContent = "Подключиться";
+                document.getElementById("connectBtn").className = "";
+                document.getElementById("liveBox").style.display = "none";
+                log(`Соединение закрыто (код: ${e.code})`, true);
+                ws = null;
+                pressedKeys.clear();
+            };
+        }
+
+        function sendWord() {
+            const input = document.getElementById("wordInput");
+            if (!ws || ws.readyState !== WebSocket.OPEN) return alert("Сначала подключитесь!");
+            if (!input.value) return;
+
+            ws.send(JSON.stringify({ action: "type", parameter: input.value }));
+            log(`📝 Отправлен текст: "${input.value}"`);
+            input.value = "";
+        }
+
+        // =================================================================
+        // ГЛАВНОЕ: ГЛОБАЛЬНЫЙ ПЕРЕХВАТ КЛАВИАТУРЫ (INSTANT RELAY)
+        // =================================================================
+        window.addEventListener("keydown", (e) => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            // Если фокус в текстовом поле для токена или слова - не перехватываем
+            if (e.target.tagName === "INPUT") return;
+
+            e.preventDefault(); // Блокируем скролл страницы от пробела/стрелок
+
+            const key = mapKey(e.key.toLowerCase());
+            if (pressedKeys.has(key)) return; // Защита от автоповтора при зажатии
+            pressedKeys.add(key);
+
+            // Отправляем команду зажать клавишу (для игр и печати)
+            ws.send(JSON.stringify({ action: "down", parameter: key }));
+            log(`⬇ DOWN: ${key}`);
+        });
+
+        window.addEventListener("keyup", (e) => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            if (e.target.tagName === "INPUT") return;
+
+            const key = mapKey(e.key.toLowerCase());
+            pressedKeys.delete(key);
+
+            // Отправляем команду отпустить клавишу
+            ws.send(JSON.stringify({ action: "up", parameter: key }));
+            log(`⬆ UP: ${key}`);
+        });
+    </script>
+</body>
+</html>
