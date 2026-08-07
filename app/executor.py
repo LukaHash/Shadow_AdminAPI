@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from app.schemas import CommandRequest
 import pyautogui
 from time import sleep
-pyautogui.PAUSE = 0.00000001
+pyautogui.PAUSE = 0.00001
 
 
 def allowcommand(action: str, parameter: str|None):
