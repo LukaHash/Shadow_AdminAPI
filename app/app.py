@@ -35,7 +35,7 @@ async def auth_http_header(
 @app.post("/execute")
 async def execute_command(user_req: CommandRequest, token: str = Depends(get_user_auth_token)):
     try:
-        return allowcommand(user_req.action,user_req.parameter)
+        return allowcommand(user_req.action,user_req)
     except Exception as e:
         raise HTTPException(status_code=400,detail=str(e))
 
