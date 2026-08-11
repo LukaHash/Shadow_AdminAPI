@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
+from app.stream import generate_frames
 from app.executor import allowcommand
 from app.schemas import CommandRequest, CommandResponse
 from app.security import get_user_auth_token
@@ -59,6 +61,12 @@ async def ws(websocket: WebSocket, token: str):
         except Exception as e:
             print(e)
             break
+
+@app.get("/stream")
+async def show_stream(token: str):
+    if getenv("API_SECRET_KEY") != token:
+        raise HTTPException(status_code=401,detail="Unauthorized")
+    return StreamingResponse(generate_frames(),media_type="multipart/x-mixed-replace; boundary=frame")
 
 
 

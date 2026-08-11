@@ -1,162 +1,1598 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="ru">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Shadow Admin - Instant Relay</title>-->
+<!--    <style>-->
+<!--        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 520px; margin: 20px auto; padding: 0 15px; background: #121212; color: #efefef; }-->
+<!--        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2d2d2d; }-->
+<!--        input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 6px; border: none; box-sizing: border-box; font-size: 16px; }-->
+<!--        input { background: #2d2d2d; color: #fff; }-->
+<!--        button { background: #2563eb; color: white; font-weight: bold; cursor: pointer; }-->
+<!--        button.disconnect { background: #dc2626; }-->
+<!--        #liveBox { background: #064e3b; color: #6ee7b7; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; border: 1px dashed #34d399; }-->
+<!--        #logs { background: #0a0a0a; padding: 10px; border-radius: 6px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #222; }-->
+<!--        .log-ok { color: #4ade80; }-->
+<!--        .log-err { color: #f87171; }-->
+<!--        .status { font-weight: bold; color: #facc15; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h2>🎮 Shadow Admin - Live Relay</h2>-->
+
+<!--    &lt;!&ndash; 1. Подключение &ndash;&gt;-->
+<!--    <div class="card">-->
+<!--        <label>Секретный токен (API_SECRET_KEY):</label>-->
+<!--        <input type="password" id="token" placeholder="Введите ключ из .env">-->
+<!--        <button id="connectBtn" onclick="toggleConnect()">Подключиться</button>-->
+<!--        <div>Статус: <span id="status" class="status">Отключено</span></div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; 2. Индикатор живого режима &ndash;&gt;-->
+<!--    <div id="liveBox">-->
+<!--        ⚡ РЕЖИМ МГНОВЕННОГО ВВОДА АКТИВЕН ⚡<br>-->
+<!--        <span style="font-size: 12px; font-weight: normal;">Любые нажатия на Bluetooth-клавиатуре улетают на ПК (без Enter)</span>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; 3. Ручной ввод предложений целиком &ndash;&gt;-->
+<!--    <div class="card">-->
+<!--        <label>Отправить целое предложение разом (type_text):</label>-->
+<!--        <div style="display: flex; gap: 8px;">-->
+<!--            <input type="text" id="wordInput" placeholder="Привет с дивана...">-->
+<!--            <button onclick="sendWord()" style="width: 120px; margin: 6px 0;">Send</button>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Логи &ndash;&gt;-->
+<!--    <h3>Логи команд:</h3>-->
+<!--    <div id="logs"></div>-->
+
+<!--    <script>-->
+<!--        let ws = null;-->
+<!--        const pressedKeys = new Set();-->
+
+<!--        // Маппер: переводит JS-названия клавиш в формат PyAutoGUI-->
+<!--        function mapKey(key) {-->
+<!--            const map = {-->
+<!--                " ": "space",-->
+<!--                "escape": "esc",-->
+<!--                "arrowup": "up",-->
+<!--                "arrowdown": "down",-->
+<!--                "arrowleft": "left",-->
+<!--                "arrowright": "right",-->
+<!--                "control": "ctrl"-->
+<!--            };-->
+<!--            return map[key] || key;-->
+<!--        }-->
+
+<!--        function log(msg, isError = false) {-->
+<!--            const logs = document.getElementById("logs");-->
+<!--            const div = document.createElement("div");-->
+<!--            div.className = isError ? "log-err" : "log-ok";-->
+<!--            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;-->
+<!--            logs.prepend(div);-->
+<!--        }-->
+
+<!--        function toggleConnect() {-->
+<!--            if (ws) {-->
+<!--                ws.close();-->
+<!--            } else {-->
+<!--                connect();-->
+<!--            }-->
+<!--        }-->
+
+<!--        function connect() {-->
+<!--            const token = document.getElementById("token").value;-->
+<!--            if (!token) return alert("Введите токен!");-->
+
+<!--            const host = window.location.host;-->
+<!--            ws = new WebSocket(`ws://${host}/ws/execute?token=${encodeURIComponent(token)}`);-->
+
+<!--            ws.onopen = () => {-->
+<!--                document.getElementById("status").textContent = "Подключено 🟢";-->
+<!--                document.getElementById("status").style.color = "#4ade80";-->
+<!--                document.getElementById("connectBtn").textContent = "Отключиться";-->
+<!--                document.getElementById("connectBtn").className = "disconnect";-->
+<!--                document.getElementById("liveBox").style.display = "block";-->
+<!--                log("WebSocket канал открыт");-->
+<!--            };-->
+
+<!--            ws.onmessage = (event) => {-->
+<!--                const res = JSON.parse(event.data);-->
+<!--                if (res.status === "error") {-->
+<!--                    log(`ОШИБКА: ${res.message}`, true);-->
+<!--                }-->
+<!--            };-->
+
+<!--            ws.onclose = (e) => {-->
+<!--                document.getElementById("status").textContent = "Отключено 🔴";-->
+<!--                document.getElementById("status").style.color = "#f87171";-->
+<!--                document.getElementById("connectBtn").textContent = "Подключиться";-->
+<!--                document.getElementById("connectBtn").className = "";-->
+<!--                document.getElementById("liveBox").style.display = "none";-->
+<!--                log(`Соединение закрыто (код: ${e.code})`, true);-->
+<!--                ws = null;-->
+<!--                pressedKeys.clear();-->
+<!--            };-->
+<!--        }-->
+
+<!--        function sendWord() {-->
+<!--            const input = document.getElementById("wordInput");-->
+<!--            if (!ws || ws.readyState !== WebSocket.OPEN) return alert("Сначала подключитесь!");-->
+<!--            if (!input.value) return;-->
+
+<!--            ws.send(JSON.stringify({ action: "type", parameter: input.value }));-->
+<!--            log(`📝 Отправлен текст: "${input.value}"`);-->
+<!--            input.value = "";-->
+<!--        }-->
+
+<!--        // =================================================================-->
+<!--        // ГЛАВНОЕ: ГЛОБАЛЬНЫЙ ПЕРЕХВАТ КЛАВИАТУРЫ (INSTANT RELAY)-->
+<!--        // =================================================================-->
+<!--        window.addEventListener("keydown", (e) => {-->
+<!--            if (!ws || ws.readyState !== WebSocket.OPEN) return;-->
+<!--            // Если фокус в текстовом поле для токена или слова - не перехватываем-->
+<!--            if (e.target.tagName === "INPUT") return;-->
+
+<!--            e.preventDefault(); // Блокируем скролл страницы от пробела/стрелок-->
+
+<!--            const key = mapKey(e.key.toLowerCase());-->
+<!--            if (pressedKeys.has(key)) return; // Защита от автоповтора при зажатии-->
+<!--            pressedKeys.add(key);-->
+
+<!--            // Отправляем команду зажать клавишу (для игр и печати)-->
+<!--            ws.send(JSON.stringify({ action: "down", parameter: key }));-->
+<!--            log(`⬇ DOWN: ${key}`);-->
+<!--        });-->
+
+<!--        window.addEventListener("keyup", (e) => {-->
+<!--            if (!ws || ws.readyState !== WebSocket.OPEN) return;-->
+<!--            if (e.target.tagName === "INPUT") return;-->
+
+<!--            const key = mapKey(e.key.toLowerCase());-->
+<!--            pressedKeys.delete(key);-->
+
+<!--            // Отправляем команду отпустить клавишу-->
+<!--            ws.send(JSON.stringify({ action: "up", parameter: key }));-->
+<!--            log(`⬆ UP: ${key}`);-->
+<!--        });-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+
+
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shadow Admin - Instant Relay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shadow Admin</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 520px; margin: 20px auto; padding: 0 15px; background: #121212; color: #efefef; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2d2d2d; }
-        input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 6px; border: none; box-sizing: border-box; font-size: 16px; }
-        input { background: #2d2d2d; color: #fff; }
-        button { background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
-        button.disconnect { background: #dc2626; }
-        #liveBox { background: #064e3b; color: #6ee7b7; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; border: 1px dashed #34d399; }
-        #logs { background: #0a0a0a; padding: 10px; border-radius: 6px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #222; }
-        .log-ok { color: #4ade80; }
-        .log-err { color: #f87171; }
-        .status { font-weight: bold; color: #facc15; }
+        :root {
+            --bg: #06060d;
+            --surface: #0d0d1a;
+            --border: #1a1a33;
+            --cyan: #00f0ff;
+            --magenta: #d000ff;
+            --green: #00ff41;
+            --red: #ff3344;
+            --amber: #ffaa00;
+            --text: #c8c8d0;
+            --dim: #666680;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ── Канвас для частиц ── */
+        #particleCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Фоновая сетка */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                linear-gradient(rgba(0,240,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,240,255,0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        /* ── Заголовок ── */
+        .header {
+            text-align: center;
+            padding: 28px 0 8px;
+            position: relative;
+        }
+
+        /* Частицы вокруг заголовка */
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 300px; height: 100px;
+            transform: translate(-50%, -50%);
+            background:
+                radial-gradient(1px 1px at 10% 20%, var(--cyan), transparent),
+                radial-gradient(1px 1px at 30% 70%, var(--magenta), transparent),
+                radial-gradient(1px 1px at 60% 10%, var(--cyan), transparent),
+                radial-gradient(1px 1px at 80% 60%, var(--magenta), transparent),
+                radial-gradient(1px 1px at 15% 85%, var(--cyan), transparent),
+                radial-gradient(1px 1px at 70% 30%, var(--cyan), transparent),
+                radial-gradient(2px 2px at 45% 40%, var(--green), transparent),
+                radial-gradient(1px 1px at 90% 80%, var(--magenta), transparent),
+                radial-gradient(1px 1px at 5% 45%, var(--cyan), transparent),
+                radial-gradient(2px 2px at 55% 90%, var(--green), transparent);
+            background-size: 300px 100px;
+            pointer-events: none;
+            z-index: -1;
+            animation: particles 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes particles {
+            0% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.15); }
+        }
+
+        .header .logo {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--cyan);
+            text-shadow: 0 0 20px rgba(0,240,255,0.6), 0 0 60px rgba(0,240,255,0.2);
+            text-transform: uppercase;
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Глитч-эффект на лого */
+        .header .logo::before,
+        .header .logo::after {
+            content: '◆ Shadow Admin';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .header .logo::before {
+            color: var(--magenta);
+            animation: glitch1 4s infinite;
+            clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+        }
+
+        .header .logo::after {
+            color: var(--cyan);
+            animation: glitch2 4s infinite;
+            clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+        }
+
+        @keyframes glitch1 {
+            0%, 90%, 100% { opacity: 0; transform: translate(0, 0); }
+            91% { opacity: 0.6; transform: translate(-2px, 1px); }
+            92% { opacity: 0; transform: translate(0, 0); }
+            93% { opacity: 0.5; transform: translate(2px, -1px); }
+            94% { opacity: 0; transform: translate(0, 0); }
+        }
+
+        @keyframes glitch2 {
+            0%, 92%, 100% { opacity: 0; transform: translate(0, 0); }
+            93% { opacity: 0.6; transform: translate(2px, -1px); }
+            94% { opacity: 0; transform: translate(0, 0); }
+            95% { opacity: 0.5; transform: translate(-1px, 1px); }
+            96% { opacity: 0; transform: translate(0, 0); }
+        }
+
+        .header .subtitle {
+            font-size: 11px;
+            color: var(--dim);
+            letter-spacing: 6px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            animation: subtitleFlicker 5s ease-in-out infinite;
+        }
+
+        @keyframes subtitleFlicker {
+            0%, 95%, 100% { opacity: 0.7; }
+            96% { opacity: 1; color: var(--cyan); }
+            97% { opacity: 0.3; }
+            98% { opacity: 1; color: var(--cyan); }
+        }
+
+        .header .version {
+            font-size: 10px;
+            color: var(--magenta);
+            opacity: 0.6;
+            letter-spacing: 2px;
+            animation: versionPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes versionPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; text-shadow: 0 0 8px var(--magenta); }
+        }
+
+        /* ── Карточки ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 18px;
+            margin-bottom: 14px;
+            position: relative;
+            transition: border-color 0.5s, box-shadow 0.5s;
+            animation: cardBorder 6s ease-in-out infinite;
+        }
+
+        @keyframes cardBorder {
+            0%, 100% { border-color: var(--border); }
+            50% { border-color: rgba(0,240,255,0.15); }
+        }
+
+        .card:hover {
+            border-color: rgba(0,240,255,0.3);
+            box-shadow: 0 0 30px rgba(0,240,255,0.05), inset 0 0 30px rgba(0,240,255,0.02);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: 20px; right: 20px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0.3;
+            animation: topLine 3s ease-in-out infinite;
+        }
+
+        @keyframes topLine {
+            0%, 100% { opacity: 0.15; }
+            50% { opacity: 0.6; }
+        }
+
+        .card h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--cyan);
+            margin-bottom: 14px;
+            font-weight: 400;
+        }
+
+        /* ── Поля ввода ── */
+        input, textarea {
+            font-family: inherit;
+            background: #080812;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: #e0e0e8;
+            padding: 11px 14px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.25s, box-shadow 0.25s;
+            width: 100%;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 12px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.03);
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: #3a3a50;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 90px;
+            line-height: 1.5;
+        }
+
+        /* ── Кнопки ── */
+        .btn {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 11px 22px;
+            border: 1px solid;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: rgba(0,240,255,0.08);
+            border-color: var(--cyan);
+            color: var(--cyan);
+            text-shadow: 0 0 8px rgba(0,240,255,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Рябь при клике */
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            border-radius: 50%;
+            background: rgba(0,240,255,0.25);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s, opacity 0.6s;
+            pointer-events: none;
+        }
+
+        .btn-primary:active::after {
+            width: 300px; height: 300px;
+            opacity: 0;
+            transition: 0s;
+        }
+
+        .btn-primary:hover {
+            background: rgba(0,240,255,0.15);
+            box-shadow: 0 0 20px rgba(0,240,255,0.3), inset 0 0 20px rgba(0,240,255,0.05);
+            animation: btnGlow 0.8s ease-in-out infinite alternate;
+        }
+
+        @keyframes btnGlow {
+            from { box-shadow: 0 0 15px rgba(0,240,255,0.25), inset 0 0 15px rgba(0,240,255,0.03); }
+            to { box-shadow: 0 0 30px rgba(0,240,255,0.45), inset 0 0 25px rgba(0,240,255,0.07); }
+        }
+
+        .btn-primary:active {
+            background: rgba(0,240,255,0.2);
+            transform: scale(0.97);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            box-shadow: none;
+            animation: none;
+        }
+
+        .btn-primary:disabled::after { display: none; }
+
+        .btn-danger {
+            background: rgba(255,51,68,0.08);
+            border-color: var(--red);
+            color: var(--red);
+            text-shadow: 0 0 8px rgba(255,51,68,0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255,51,68,0.15);
+            box-shadow: 0 0 20px rgba(255,51,68,0.25);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--dim);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            transition: left 0.6s;
+        }
+
+        .btn-secondary:hover::before { left: 100%; }
+
+        .btn-secondary:hover {
+            border-color: var(--cyan);
+            color: #bbb;
+            text-shadow: 0 0 6px rgba(0,240,255,0.3);
+            box-shadow: 0 0 12px rgba(0,240,255,0.1);
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.96);
+            border-color: var(--cyan);
+        }
+
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+
+        /* ── Инпут-группы ── */
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .row > input { flex: 1; min-width: 140px; }
+
+        .host-row {
+            display: flex;
+            flex: 1;
+            min-width: 140px;
+            position: relative;
+        }
+
+        .host-row input {
+            padding-right: 36px;
+            width: 100%;
+        }
+
+        .eye-btn {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--dim);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 6px;
+            line-height: 1;
+            transition: color 0.2s;
+            z-index: 2;
+        }
+
+        .eye-btn:hover {
+            color: var(--cyan);
+            text-shadow: 0 0 6px var(--cyan);
+        }
+
+        /* ── Статус ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot.off  { background: #444; box-shadow: 0 0 6px #444; }
+        .dot.on   { background: var(--green); box-shadow: 0 0 12px var(--green); animation: glow 2s ease-in-out infinite; }
+        .dot.wait { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: blink 0.8s ease-in-out infinite; }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 8px var(--green); }
+            50% { box-shadow: 0 0 20px var(--green), 0 0 40px rgba(0,255,65,0.4); }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ── Табы режимов ── */
+        .tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--dim);
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .tab.active {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0,240,255,0.05);
+            text-shadow: 0 0 8px rgba(0,240,255,0.3);
+        }
+
+        .tab:hover:not(.active) {
+            border-color: #444;
+            color: #999;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Логи ── */
+        .log-box {
+            background: #04040c;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            max-height: 280px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.7;
+            scroll-behavior: smooth;
+        }
+
+        .log-box::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .log-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .log-box::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            word-break: break-all;
+            animation: logSlide 0.3s ease-out;
+        }
+
+        @keyframes logSlide {
+            from { opacity: 0; transform: translateX(-12px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-line.ok     { color: var(--green); }
+        .log-line.err    { color: var(--red); }
+        .log-line.info   { color: var(--cyan); }
+        .log-line.warn   { color: var(--amber); }
+        .log-line.system { color: var(--dim); }
+
+        /* ── Подсказки ── */
+        .hint {
+            font-size: 10px;
+            color: var(--dim);
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
+
+        .hint kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 3px;
+            padding: 1px 7px;
+            font-family: inherit;
+            font-size: 10px;
+            margin: 0 2px;
+            color: #999;
+        }
+
+        /* ── Баннер ── */
+        .banner {
+            border: 1px solid rgba(255,170,0,0.25);
+            background: rgba(255,170,0,0.04);
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            font-size: 11px;
+            color: var(--amber);
+            letter-spacing: 0.5px;
+            animation: bannerPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes bannerPulse {
+            0%, 100% { border-color: rgba(255,170,0,0.15); }
+            50% { border-color: rgba(255,170,0,0.4); }
+        }
+
+        .banner strong {
+            display: block;
+            margin-bottom: 4px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+
+        /* ── Мобильная адаптация ── */
+        @media (max-width: 600px) {
+            .container { padding: 8px; }
+
+            .header .logo { font-size: 22px; letter-spacing: 2px; }
+            .header .subtitle { font-size: 9px; letter-spacing: 4px; }
+
+            .card { padding: 12px; }
+
+            .row { flex-direction: column; }
+            .row > input, .host-row { width: 100%; }
+
+            .tabs { flex-direction: column; }
+
+            .btn { width: 100%; }
+        }
+
+        /* ── Выделение ── */
+        .highlight {
+            color: var(--cyan);
+            text-shadow: 0 0 6px rgba(0,240,255,0.4);
+        }
+
+        /* ── Анимированный курсор в смарт-редакторе ── */
+        #smartEditor {
+            caret-color: var(--cyan);
+            animation: editorPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes editorPulse {
+            0%, 100% { border-color: var(--border); }
+            50% { border-color: rgba(0,240,255,0.25); }
+        }
+
+        #smartEditor:focus {
+            animation: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0,240,255,0.2), inset 0 0 20px rgba(0,240,255,0.04);
+        }
+
+        /* ── Стрим ── */
+        .stream-wrap {
+            width: 100%;
+            max-height: 480px;
+            overflow: hidden;
+            background: #000;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            position: relative;
+            animation: streamBorder 4s ease-in-out infinite;
+        }
+
+        @keyframes streamBorder {
+            0%, 100% { border-color: var(--border); }
+            50% { border-color: rgba(0,240,255,0.3); }
+        }
+
+        .stream-wrap img {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: pointer;
+        }
+
+        .stream-off {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+            color: var(--dim);
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Фулскрин-оверлей */
+        .fs-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #000;
+            z-index: 10000;
+            cursor: pointer;
+        }
+
+        .fs-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fs-overlay img {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+        }
+
+        .fs-close {
+            position: fixed;
+            top: 12px;
+            right: 16px;
+            z-index: 10001;
+            font-size: 28px;
+            color: #fff;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            display: none;
+        }
+
+        .fs-overlay.active ~ .fs-close {
+            display: block;
+        }
     </style>
 </head>
 <body>
-    <h2>🎮 Shadow Admin - Live Relay</h2>
 
-    <!-- 1. Подключение -->
-    <div class="card">
-        <label>Секретный токен (API_SECRET_KEY):</label>
-        <input type="password" id="token" placeholder="Введите ключ из .env">
-        <button id="connectBtn" onclick="toggleConnect()">Подключиться</button>
-        <div>Статус: <span id="status" class="status">Отключено</span></div>
-    </div>
+    <!-- Канвас для летающих частиц -->
+    <canvas id="particleCanvas"></canvas>
 
-    <!-- 2. Индикатор живого режима -->
-    <div id="liveBox">
-        ⚡ РЕЖИМ МГНОВЕННОГО ВВОДА АКТИВЕН ⚡<br>
-        <span style="font-size: 12px; font-weight: normal;">Любые нажатия на Bluetooth-клавиатуре улетают на ПК (без Enter)</span>
-    </div>
+    <div class="container">
 
-    <!-- 3. Ручной ввод предложений целиком -->
-    <div class="card">
-        <label>Отправить целое предложение разом (type_text):</label>
-        <div style="display: flex; gap: 8px;">
-            <input type="text" id="wordInput" placeholder="Привет с дивана...">
-            <button onclick="sendWord()" style="width: 120px; margin: 6px 0;">Send</button>
+        <!-- Заголовок -->
+        <div class="header">
+            <div class="logo">◆ Shadow Admin</div>
+            <div class="subtitle">Remote Input Relay</div>
+            <div class="version">v2.0</div>
         </div>
+
+        <!-- Баннер -->
+        <div class="banner">
+            <strong>Внимание</strong>
+            Сервер должен быть запущен. С телефона подключайтесь по локальному IP вашего ПК в сети (узнайте через <code>ipconfig</code> / <code>ifconfig</code>). Не указывайте localhost.
+        </div>
+
+        <!-- Подключение -->
+        <div class="card">
+            <h2>▸ Соединение</h2>
+
+            <div class="row" style="margin-bottom:10px;">
+                <div class="host-row">
+                    <input type="password" id="serverHost" value="localhost" placeholder="IP / хост сервера" spellcheck="false" autocomplete="off">
+                    <button type="button" id="hostEye" class="eye-btn" onclick="toggleHostEye()">👁</button>
+                </div>
+                <span style="color:var(--dim);font-size:11px;">:8000</span>
+            </div>
+
+            <div class="row" style="margin-bottom:10px;">
+                <input type="password" id="token" placeholder="API_SECRET_KEY" autocomplete="off" spellcheck="false">
+                <button class="btn btn-primary" id="connectBtn" onclick="doConnect()">Connect</button>
+            </div>
+
+            <div class="status-bar">
+                <div class="dot off" id="dot"></div>
+                <span id="statusLabel" style="font-size:11px;letter-spacing:2px;color:var(--dim);">OFFLINE</span>
+            </div>
+        </div>
+
+        <!-- Ввод -->
+        <div class="card">
+            <h2>▸ Управление</h2>
+
+            <div class="tabs">
+                <div class="tab active" data-mode="smart" onclick="setMode('smart')">⚡ Смарт</div>
+                <div class="tab" data-mode="keydown" onclick="setMode('keydown')">⌨ Клавиши</div>
+                <div class="tab" data-mode="type" onclick="setMode('type')">📝 Текст</div>
+            </div>
+
+            <!-- Смарт-режим -->
+            <div class="tab-panel active" id="panelSmart">
+                <textarea id="smartEditor" placeholder="Пишите здесь — каждый символ уходит на ПК в реальном времени..."></textarea>
+                <div class="row" style="margin-top:8px;">
+                    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('smartEditor').value=''">Очистить</button>
+                    <span class="hint">Работает на ПК и телефоне. Enter, Backspace, Delete — тоже передаются.</span>
+                </div>
+            </div>
+
+            <!-- Клавиши -->
+            <div class="tab-panel" id="panelKeydown">
+                <textarea id="keyEditor" placeholder="Фокус здесь → жмите клавиши..."></textarea>
+                <div class="hint" style="margin-top:8px;">
+                    <kbd>Enter</kbd> <kbd>Backspace</kbd> <kbd>Space</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> <kbd>Tab</kbd> <kbd>Escape</kbd>
+                    <br>На телефоне этот режим не работает — используйте <span class="highlight">Смарт</span>.
+                </div>
+            </div>
+
+            <!-- Текст -->
+            <div class="tab-panel" id="panelType">
+                <div class="row">
+                    <input type="text" id="typeInput" placeholder="Текст для отправки...">
+                    <button class="btn btn-primary btn-sm" onclick="sendType()">Отправить</button>
+                </div>
+                <div class="hint">Отправляет строку целиком через pyautogui.write()</div>
+            </div>
+        </div>
+
+        <!-- Макросы -->
+        <div class="card">
+            <h2>▸ Быстрые команды</h2>
+            <div class="row">
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','enter')">Enter</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','backspace')">Backspace</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','tab')">Tab</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','escape')">Esc</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','space')">Space</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','delete')">Del</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','up')">↑</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','down')">↓</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','left')">←</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','right')">→</button>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumeup')">Vol+</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumedown')">Vol-</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumemute')">Mute</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','printscreen')">PrtSc</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('type','https://')">https://</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendQuick('type','\n')">↩ Новая строка</button>
+            </div>
+        </div>
+
+        <!-- Стрим -->
+        <div class="card" id="streamCard" style="display:none;">
+            <h2>▸ Стрим экрана</h2>
+            <div class="stream-wrap" id="streamWrap">
+                <div class="stream-off" id="streamOff">Стрим не активен</div>
+                <img id="streamImg" style="display:none;" alt="screen stream" onclick="enterFullscreen()">
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-sm btn-secondary" id="streamToggleBtn" onclick="toggleStream()">▶ Запустить стрим</button>
+                <span class="hint" id="streamHint"></span>
+            </div>
+        </div>
+
+        <!-- Логи -->
+        <div class="card">
+            <h2>▸ Логи</h2>
+            <div class="log-box" id="logBox">
+                <div class="log-line system">[sys] Клиент готов. Введите ключ и хост → Connect.</div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-sm btn-secondary" onclick="clearLogs()">Очистить логи</button>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Логи -->
-    <h3>Логи команд:</h3>
-    <div id="logs"></div>
+    <!-- Фулскрин оверлей для стрима -->
+    <div class="fs-overlay" id="fsOverlay" onclick="exitFullscreen()">
+        <img id="fsImg" src="" alt="fullscreen stream">
+    </div>
+    <button class="fs-close" id="fsClose" onclick="exitFullscreen()">✕</button>
 
     <script>
-        let ws = null;
-        const pressedKeys = new Set();
+    (function() {
+        // ── Состояние ──
+        var ws = null;
+        var mode = 'smart';
+        var connected = false;
 
-        // Маппер: переводит JS-названия клавиш в формат PyAutoGUI
-        function mapKey(key) {
-            const map = {
-                " ": "space",
-                "escape": "esc",
-                "arrowup": "up",
-                "arrowdown": "down",
-                "arrowleft": "left",
-                "arrowright": "right",
-                "control": "ctrl"
+        // ── DOM ──
+        var $ = function(id) { return document.getElementById(id); };
+
+        var serverHostEl = $('serverHost');
+        var hostEyeBtn = $('hostEye');
+        var tokenEl = $('token');
+        var connectBtn = $('connectBtn');
+        var dotEl = $('dot');
+        var statusLabel = $('statusLabel');
+        var logBox = $('logBox');
+        var smartEditor = $('smartEditor');
+        var keyEditor = $('keyEditor');
+        var typeInput = $('typeInput');
+        var streamCard = $('streamCard');
+        var streamImg = $('streamImg');
+        var streamWrap = $('streamWrap');
+        var streamOff = $('streamOff');
+        var streamToggleBtn = $('streamToggleBtn');
+        var streamHint = $('streamHint');
+        var fsOverlay = $('fsOverlay');
+        var fsImg = $('fsImg');
+        var fsClose = $('fsClose');
+        var streamActive = false;
+
+        // Клик по стриму → фулскрин
+        window.enterFullscreen = function() {
+            if (!streamActive) return;
+            fsImg.src = streamImg.src + '&_=' + Date.now(); // свежий кадр
+            fsOverlay.classList.add('active');
+            log('Фулскрин включён', 'info');
+        };
+
+        window.exitFullscreen = function() {
+            fsOverlay.classList.remove('active');
+            fsImg.src = '';
+        };
+
+        // Esc = выход из фулскрина
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && fsOverlay.classList.contains('active')) {
+                exitFullscreen();
+            }
+        });
+
+        // ═══════════════════════════════════════
+        //  ЧАСТИЦЫ (canvas)
+        // ═══════════════════════════════════════
+        var canvas = $('particleCanvas');
+        var ctx = canvas.getContext('2d');
+        var particles = [];
+        var PARTICLE_COUNT = 60;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function createParticle() {
+            return {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: (Math.random() - 0.5) * 0.6,
+                size: Math.random() * 2 + 0.5,
+                alpha: Math.random() * 0.6 + 0.1,
+                alphaSpeed: (Math.random() - 0.5) * 0.015,
+                color: ['#00f0ff','#d000ff','#00ff41'][Math.floor(Math.random()*3)],
+                pulse: Math.random() * Math.PI * 2
             };
-            return map[key] || key;
         }
 
-        function log(msg, isError = false) {
-            const logs = document.getElementById("logs");
-            const div = document.createElement("div");
-            div.className = isError ? "log-err" : "log-ok";
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logs.prepend(div);
-        }
-
-        function toggleConnect() {
-            if (ws) {
-                ws.close();
-            } else {
-                connect();
+        function initParticles() {
+            particles = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(createParticle());
             }
         }
 
-        function connect() {
-            const token = document.getElementById("token").value;
-            if (!token) return alert("Введите токен!");
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const host = window.location.host;
-            ws = new WebSocket(`ws://${host}/ws/execute?token=${encodeURIComponent(token)}`);
+            for (var i = 0; i < particles.length; i++) {
+                var p = particles[i];
 
-            ws.onopen = () => {
-                document.getElementById("status").textContent = "Подключено 🟢";
-                document.getElementById("status").style.color = "#4ade80";
-                document.getElementById("connectBtn").textContent = "Отключиться";
-                document.getElementById("connectBtn").className = "disconnect";
-                document.getElementById("liveBox").style.display = "block";
-                log("WebSocket канал открыт");
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha += p.alphaSpeed;
+                p.pulse += 0.02;
+
+                // Зацикливание
+                if (p.x < -10) p.x = canvas.width + 10;
+                if (p.x > canvas.width + 10) p.x = -10;
+                if (p.y < -10) p.y = canvas.height + 10;
+                if (p.y > canvas.height + 10) p.y = -10;
+
+                // Пульсация прозрачности
+                if (p.alpha > 0.8 || p.alpha < 0.05) p.alphaSpeed *= -1;
+
+                var glowSize = p.size + Math.sin(p.pulse) * 2;
+
+                // Свечение
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, glowSize + 3, 0, Math.PI * 2);
+                ctx.fillStyle = p.color.replace(')','').replace('rgb','rgba').replace('(','(') || p.color;
+                // Проще: rgba через шаблон
+                var rgba = p.color === '#00f0ff' ? 'rgba(0,240,255,0.08)' :
+                           p.color === '#d000ff' ? 'rgba(208,0,255,0.08)' :
+                           'rgba(0,255,65,0.08)';
+                ctx.fillStyle = rgba;
+                ctx.fill();
+
+                // Ядро
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                var core = p.color === '#00f0ff' ? 'rgba(0,240,255,' + p.alpha + ')' :
+                           p.color === '#d000ff' ? 'rgba(208,0,255,' + p.alpha + ')' :
+                           'rgba(0,255,65,' + p.alpha + ')';
+                ctx.fillStyle = core;
+                ctx.fill();
+            }
+
+            // Линии между близкими частицами
+            for (var i = 0; i < particles.length; i++) {
+                for (var j = i + 1; j < particles.length; j++) {
+                    var dx = particles[i].x - particles[j].x;
+                    var dy = particles[i].y - particles[j].y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        var lineAlpha = (1 - dist / 100) * 0.08;
+                        ctx.strokeStyle = 'rgba(0,240,255,' + lineAlpha + ')';
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(drawParticles);
+        }
+
+
+        // ── Глаз для поля хоста ──
+        window.toggleHostEye = function() {
+            if (serverHostEl.type === 'password') {
+                serverHostEl.type = 'text';
+                hostEyeBtn.textContent = '🙈';
+            } else {
+                serverHostEl.type = 'password';
+                hostEyeBtn.textContent = '👁';
+            }
+        };
+
+        // ── Стрим ──
+        function getStreamUrl() {
+            var host = serverHostEl.value.trim() || 'localhost';
+            var token = tokenEl.value.trim();
+            return 'http://' + host + ':8000/stream?token=' + encodeURIComponent(token);
+        }
+
+        window.toggleStream = function() {
+            if (!connected) {
+                log('Сначала подключитесь к серверу', 'warn');
+                return;
+            }
+            if (streamActive) {
+                stopStream();
+            } else {
+                startStream();
+            }
+        };
+
+        function startStream() {
+            var url = getStreamUrl();
+            streamImg.onerror = function() {
+                log('Ошибка загрузки стрима. Проверь /stream в app.py — токен должен читаться из ?token= а не из заголовка.', 'err');
+                stopStream();
+            };
+            streamImg.onload = function() {
+                log('Стрим пошёл', 'ok');
+                streamHint.textContent = 'FPS ~120 | качество 60%';
+            };
+            streamImg.src = url;
+            streamImg.style.display = 'block';
+            streamOff.style.display = 'none';
+            streamActive = true;
+            streamToggleBtn.textContent = '■ Остановить';
+            streamToggleBtn.style.color = 'var(--red)';
+            streamToggleBtn.style.borderColor = 'var(--red)';
+            log('Запрос стрима: ' + url, 'info');
+        }
+
+        function stopStream() {
+            streamImg.onerror = null;
+            streamImg.onload = null;
+            streamImg.src = '';
+            streamImg.style.display = 'none';
+            streamOff.style.display = 'flex';
+            streamActive = false;
+            streamToggleBtn.textContent = '▶ Запустить стрим';
+            streamToggleBtn.style.color = '';
+            streamToggleBtn.style.borderColor = '';
+            streamHint.textContent = '';
+            log('Стрим остановлен', 'system');
+        }
+        function log(msg, cls) {
+            var div = document.createElement('div');
+            div.className = 'log-line ' + (cls || 'system');
+            var now = new Date();
+            var ts = ('0'+now.getHours()).slice(-2) + ':'
+                   + ('0'+now.getMinutes()).slice(-2) + ':'
+                   + ('0'+now.getSeconds()).slice(-2);
+            div.textContent = '[' + ts + '] ' + msg;
+            logBox.appendChild(div);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        window.clearLogs = function() {
+            logBox.innerHTML = '';
+            log('Логи очищены', 'system');
+        };
+
+        // ── Статус ──
+        function setStatus(st) {
+            dotEl.className = 'dot';
+            if (st === 'on') {
+                dotEl.classList.add('on');
+                statusLabel.textContent = 'CONNECTED';
+                statusLabel.style.color = 'var(--green)';
+            } else if (st === 'wait') {
+                dotEl.classList.add('wait');
+                statusLabel.textContent = 'CONNECTING...';
+                statusLabel.style.color = 'var(--amber)';
+            } else {
+                dotEl.classList.add('off');
+                statusLabel.textContent = 'OFFLINE';
+                statusLabel.style.color = 'var(--dim)';
+            }
+        }
+
+        // ── Отправка ──
+        function sendRaw(action, parameter) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Нет соединения с сервером', 'err');
+                return false;
+            }
+            try {
+                var msg = JSON.stringify({action: action, parameter: parameter});
+                ws.send(msg);
+                log('→ ' + action + ' | ' + (parameter.length > 40 ? parameter.slice(0,40)+'...' : parameter), 'info');
+                return true;
+            } catch(e) {
+                log('Ошибка отправки: ' + e.message, 'err');
+                return false;
+            }
+        }
+
+        // Быстрая команда (кнопки)
+        window.sendQuick = function(action, parameter) {
+            if (!connected) {
+                log('Сначала подключитесь к серверу', 'warn');
+                return;
+            }
+            sendRaw(action, parameter);
+        };
+
+        // ── Подключение ──
+        window.doConnect = function() {
+            if (connected && ws) {
+                ws.close(1000, 'user disconnect');
+                return;
+            }
+
+            var token = tokenEl.value.trim();
+            if (!token) {
+                log('Введите API_SECRET_KEY', 'err');
+                return;
+            }
+
+            var host = serverHostEl.value.trim() || 'localhost';
+            var url = 'ws://' + host + ':8000/ws/execute?token=' + encodeURIComponent(token);
+
+            log('Подключение к ' + host + ':8000 ...', 'system');
+            setStatus('wait');
+            connectBtn.textContent = '...';
+            connectBtn.disabled = true;
+
+            try {
+                ws = new WebSocket(url);
+            } catch(e) {
+                log('Не удалось создать сокет: ' + e.message, 'err');
+                setStatus('off');
+                connectBtn.textContent = 'Connect';
+                connectBtn.disabled = false;
+                return;
+            }
+
+            ws.onopen = function() {
+                log('Соединение установлено', 'ok');
+                setStatus('on');
+                connected = true;
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.className = 'btn btn-danger';
+                connectBtn.disabled = false;
+                streamCard.style.display = 'block';
             };
 
-            ws.onmessage = (event) => {
-                const res = JSON.parse(event.data);
-                if (res.status === "error") {
-                    log(`ОШИБКА: ${res.message}`, true);
+            ws.onmessage = function(e) {
+                try {
+                    var d = JSON.parse(e.data);
+                    if (d.status === 'success') {
+                        log('OK: ' + d.message, 'ok');
+                    } else {
+                        log('Ошибка: ' + (d.message || JSON.stringify(d)), 'err');
+                    }
+                } catch(_) {
+                    log('← ' + e.data, 'info');
                 }
             };
 
-            ws.onclose = (e) => {
-                document.getElementById("status").textContent = "Отключено 🔴";
-                document.getElementById("status").style.color = "#f87171";
-                document.getElementById("connectBtn").textContent = "Подключиться";
-                document.getElementById("connectBtn").className = "";
-                document.getElementById("liveBox").style.display = "none";
-                log(`Соединение закрыто (код: ${e.code})`, true);
-                ws = null;
-                pressedKeys.clear();
+            ws.onerror = function() {
+                log('Ошибка WebSocket', 'err');
             };
-        }
 
-        function sendWord() {
-            const input = document.getElementById("wordInput");
-            if (!ws || ws.readyState !== WebSocket.OPEN) return alert("Сначала подключитесь!");
-            if (!input.value) return;
+            ws.onclose = function(e) {
+                log('Соединение закрыто (код ' + e.code + ')', 'system');
+                setStatus('off');
+                connected = false;
+                connectBtn.textContent = 'Connect';
+                connectBtn.className = 'btn btn-primary';
+                connectBtn.disabled = false;
+                stopStream();
+                streamCard.style.display = 'none';
+                ws = null;
+            };
+        };
 
-            ws.send(JSON.stringify({ action: "type", parameter: input.value }));
-            log(`📝 Отправлен текст: "${input.value}"`);
-            input.value = "";
-        }
+        // ── Режимы ──
+        window.setMode = function(m) {
+            mode = m;
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.toggle('active', t.dataset.mode === m);
+            });
+            document.querySelectorAll('.tab-panel').forEach(function(p) {
+                p.classList.toggle('active', p.id === 'panel' + m.charAt(0).toUpperCase() + m.slice(1));
+            });
+            log('Режим: ' + {smart:'Смарт', keydown:'Клавиши', type:'Текст'}[m], 'system');
+        };
 
-        // =================================================================
-        // ГЛАВНОЕ: ГЛОБАЛЬНЫЙ ПЕРЕХВАТ КЛАВИАТУРЫ (INSTANT RELAY)
-        // =================================================================
-        window.addEventListener("keydown", (e) => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            // Если фокус в текстовом поле для токена или слова - не перехватываем
-            if (e.target.tagName === "INPUT") return;
+        // ── Смарт-режим: beforeinput ──
+        // Мобильные клавиатуры шлют insertCompositionText (IME-композиция).
+        // Обрабатываем ВСЕ insert*-события как type + гасим через флаг.
+        var smartSkipInput = false;
 
-            e.preventDefault(); // Блокируем скролл страницы от пробела/стрелок
+        smartEditor.addEventListener('beforeinput', function(e) {
+            if (!connected || mode !== 'smart') return;
 
-            const key = mapKey(e.key.toLowerCase());
-            if (pressedKeys.has(key)) return; // Защита от автоповтора при зажатии
-            pressedKeys.add(key);
+            var it = e.inputType;
+            var d = e.data;
 
-            // Отправляем команду зажать клавишу (для игр и печати)
-            ws.send(JSON.stringify({ action: "down", parameter: key }));
-            log(`⬇ DOWN: ${key}`);
+            // Все варианты вставки текста
+            if (d && (it === 'insertText' || it === 'insertCompositionText'
+                   || it === 'insertFromPaste' || it === 'insertFromDrop'
+                   || it === 'insertReplacementText')) {
+                e.preventDefault();
+                smartSkipInput = true;
+                sendRaw('type', d);
+                return;
+            }
+
+            // Enter
+            if (it === 'insertLineBreak' || it === 'insertParagraph') {
+                e.preventDefault();
+                smartSkipInput = true;
+                sendRaw('press', 'enter');
+                return;
+            }
+
+            // Backspace
+            if (it === 'deleteContentBackward' || it === 'deleteWordBackward'
+             || it === 'deleteSoftLineBackward' || it === 'deleteHardLineBackward') {
+                e.preventDefault();
+                smartSkipInput = true;
+                sendRaw('press', 'backspace');
+                return;
+            }
+
+            // Delete
+            if (it === 'deleteContentForward' || it === 'deleteWordForward'
+             || it === 'deleteSoftLineForward' || it === 'deleteHardLineForward') {
+                e.preventDefault();
+                smartSkipInput = true;
+                sendRaw('press', 'delete');
+                return;
+            }
+
+            // Неизвестное — логируем один раз
+            log('? beforeinput: ' + it + (d ? ' |' + d : ''), 'warn');
         });
 
-        window.addEventListener("keyup", (e) => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            if (e.target.tagName === "INPUT") return;
-
-            const key = mapKey(e.key.toLowerCase());
-            pressedKeys.delete(key);
-
-            // Отправляем команду отпустить клавишу
-            ws.send(JSON.stringify({ action: "up", parameter: key }));
-            log(`⬆ UP: ${key}`);
+        // input-фолбэк: только если beforeinput не сработал
+        var smartPrev = '';
+        smartEditor.addEventListener('input', function(e) {
+            if (!connected || mode !== 'smart') return;
+            if (smartSkipInput) {
+                smartSkipInput = false;
+                smartEditor.value = '';
+                smartPrev = '';
+                return;
+            }
+            // Старый браузер без beforeinput — разница длин
+            var v = smartEditor.value;
+            if (v.length > smartPrev.length) {
+                sendRaw('type', v.slice(smartPrev.length));
+            } else if (v.length < smartPrev.length) {
+                for (var i = 0; i < smartPrev.length - v.length; i++) sendRaw('press', 'backspace');
+            }
+            smartEditor.value = '';
+            smartPrev = '';
         });
+
+        // ═══════════════════════════════════════
+        //  ПРЕОБРАЗОВАТЕЛЬ: e.code → pyautogui-имя
+        //  e.code = физическая кнопка, НЕ зависит от раскладки ОС
+        // ═══════════════════════════════════════
+                function codeToPyautogui(code) {
+            if (code.indexOf('Key') === 0 && code.length === 4) {
+                return code.charAt(3).toLowerCase();
+            }
+            if (code.indexOf('Digit') === 0 && code.length === 6) {
+                return code.charAt(5);
+            }
+            if (code.indexOf('Numpad') === 0 && /^\d$/.test(code.charAt(6))) {
+                return 'num' + code.charAt(6);
+            }
+            if (code === 'NumpadAdd')      return 'numadd';
+            if (code === 'NumpadSubtract') return 'numsubtract';
+            if (code === 'NumpadMultiply') return 'nummultiply';
+            if (code === 'NumpadDivide')   return 'numdivide';
+            if (code === 'NumpadDecimal')  return 'numdecimal';
+            if (code === 'NumpadEnter')    return 'numenter';
+            if (/^F\d+$/.test(code)) return code.toLowerCase();
+            var map = {
+                'Escape':      'esc',
+                'Backspace':   'backspace',
+                'Tab':         'tab',
+                'Enter':       'enter',
+                'Space':       'space',
+                'Delete':      'delete',
+                'Insert':      'insert',
+                'Home':        'home',
+                'End':         'end',
+                'PageUp':      'pageup',
+                'PageDown':    'pagedown',
+                'ArrowUp':     'up',
+                'ArrowDown':   'down',
+                'ArrowLeft':   'left',
+                'ArrowRight':  'right',
+                'CapsLock':    'capslock',
+                'NumLock':     'numlock',
+                'ScrollLock':  'scrolllock',
+                'PrintScreen': 'printscreen',
+                'Pause':       'pause',
+                'VolumeUp':    'volumeup',
+                'VolumeDown':  'volumedown',
+                'VolumeMute':  'volumemute',
+                'Backquote': '`',
+                'Minus':     '-',
+                'Equal':     '=',
+                'BracketLeft':  '[',
+                'BracketRight': ']',
+                'Backslash':    '\\',
+                'Semicolon':    ';',
+                'Quote':        "'",
+                'Comma':        ',',
+                'Period':       '.',
+                'Slash':        '/',
+                'MediaPlayPause':  'playpause',
+                'MediaTrackNext':  'nexttrack',
+                'MediaTrackPrevious': 'prevtrack'
+            };
+            return map[code] || '';
+        }
+
+        // Модификаторы — не шлём
+        var MODIFIER_CODES = {
+            'ShiftLeft':1,'ShiftRight':1,'ControlLeft':1,'ControlRight':1,
+            'AltLeft':1,'AltRight':1,'MetaLeft':1,'MetaRight':1,
+            'OSLeft':1,'OSRight':1,'Fn':1
+        };
+
+        // ── Клавиши: keydown — e.code (ПК) или e.key (мобилка) ──
+        keyEditor.addEventListener('keydown', function(e) {
+            if (!connected || mode !== 'keydown') return;
+
+            var code = e.code;
+            var key = e.key;
+            var keyName = '';
+
+            // На мобиле e.code часто пустой → пробуем e.key
+            if (code) {
+                if (MODIFIER_CODES[code]) return;
+                keyName = codeToPyautogui(code);
+            }
+
+            // Фолбэк на e.key (мобильные виртуальные клавиатуры)
+            if (!keyName && key && key !== 'Unidentified' && key !== 'Dead') {
+                var kl = key.toLowerCase();
+                // Односимвольные — type, спецклавиши — press
+                if (kl.length === 1) {
+                    keyName = kl;
+                } else if (kl === 'enter') {
+                    keyName = 'enter';
+                } else if (kl === 'backspace') {
+                    keyName = 'backspace';
+                } else if (kl === 'tab') {
+                    keyName = 'tab';
+                } else if (kl === 'escape') {
+                    keyName = 'esc';
+                }
+            }
+
+            if (!keyName) {
+                log('? keydown skip: code=' + (code||'?') + ' key=' + (key||'?'), 'warn');
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Односимвольные — type (работает с любым языком), остальные — press
+            if (keyName.length === 1) {
+                sendRaw('type', keyName);
+            } else {
+                sendRaw('press', keyName);
+            }
+        });
+
+        // Дополнительно: глобальный перехват Escape (браузер может съедать на document)
+        document.addEventListener('keydown', function(e) {
+            if (!connected || mode !== 'keydown') return;
+            if (e.code === 'Escape' && document.activeElement === keyEditor) {
+                e.preventDefault();
+                e.stopPropagation();
+                // keyEditor уже обработает, но на всякий случай:
+                if (!e.defaultPrevented) {
+                    sendRaw('press', 'esc');
+                }
+            }
+        }, true); // capture phase — перехватываем до браузера
+
+        // ── Текст: отправка строки ──
+        window.sendType = function() {
+            if (!connected) {
+                log('Сначала подключитесь к серверу', 'warn');
+                return;
+            }
+            if (mode !== 'type') setMode('type');
+            var text = typeInput.value;
+            if (!text) {
+                log('Введите текст для отправки', 'warn');
+                return;
+            }
+            sendRaw('type', text);
+            typeInput.value = '';
+        };
+
+        typeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                window.sendType();
+            }
+        });
+
+        // ── Инициализация ──
+        (function init() {
+            // Частицы
+            resizeCanvas();
+            initParticles();
+            drawParticles();
+            window.addEventListener('resize', function() {
+                resizeCanvas();
+                initParticles();
+            });
+
+            // Мобилка
+            var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                log('Обнаружено мобильное устройство. Режим «Смарт» активен.', 'system');
+                log('Укажите IP компьютера в поле хоста (не localhost).', 'warn');
+            }
+        })();
+
+    })();
     </script>
 </body>
 </html>
+
+
