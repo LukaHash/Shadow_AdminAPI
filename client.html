@@ -1,1009 +1,3 @@
-<!--&lt;!&ndash;<!DOCTYPE html>&ndash;&gt;-->
-<!--&lt;!&ndash;<html lang="ru">&ndash;&gt;-->
-<!--&lt;!&ndash;<head>&ndash;&gt;-->
-<!--&lt;!&ndash;    <meta charset="UTF-8">&ndash;&gt;-->
-<!--&lt;!&ndash;    <meta name="viewport" content="width=device-width, initial-scale=1.0">&ndash;&gt;-->
-<!--&lt;!&ndash;    <title>Shadow Admin - Instant Relay</title>&ndash;&gt;-->
-<!--&lt;!&ndash;    <style>&ndash;&gt;-->
-<!--&lt;!&ndash;        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 520px; margin: 20px auto; padding: 0 15px; background: #121212; color: #efefef; }&ndash;&gt;-->
-<!--&lt;!&ndash;        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2d2d2d; }&ndash;&gt;-->
-<!--&lt;!&ndash;        input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 6px; border: none; box-sizing: border-box; font-size: 16px; }&ndash;&gt;-->
-<!--&lt;!&ndash;        input { background: #2d2d2d; color: #fff; }&ndash;&gt;-->
-<!--&lt;!&ndash;        button { background: #2563eb; color: white; font-weight: bold; cursor: pointer; }&ndash;&gt;-->
-<!--&lt;!&ndash;        button.disconnect { background: #dc2626; }&ndash;&gt;-->
-<!--&lt;!&ndash;        #liveBox { background: #064e3b; color: #6ee7b7; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; border: 1px dashed #34d399; }&ndash;&gt;-->
-<!--&lt;!&ndash;        #logs { background: #0a0a0a; padding: 10px; border-radius: 6px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #222; }&ndash;&gt;-->
-<!--&lt;!&ndash;        .log-ok { color: #4ade80; }&ndash;&gt;-->
-<!--&lt;!&ndash;        .log-err { color: #f87171; }&ndash;&gt;-->
-<!--&lt;!&ndash;        .status { font-weight: bold; color: #facc15; }&ndash;&gt;-->
-<!--&lt;!&ndash;    </style>&ndash;&gt;-->
-<!--&lt;!&ndash;</head>&ndash;&gt;-->
-<!--&lt;!&ndash;<body>&ndash;&gt;-->
-<!--&lt;!&ndash;    <h2>🎮 Shadow Admin - Live Relay</h2>&ndash;&gt;-->
-
-<!--&lt;!&ndash;    &lt;!&ndash; 1. Подключение &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;    <div class="card">&ndash;&gt;-->
-<!--&lt;!&ndash;        <label>Секретный токен (API_SECRET_KEY):</label>&ndash;&gt;-->
-<!--&lt;!&ndash;        <input type="password" id="token" placeholder="Введите ключ из .env">&ndash;&gt;-->
-<!--&lt;!&ndash;        <button id="connectBtn" onclick="toggleConnect()">Подключиться</button>&ndash;&gt;-->
-<!--&lt;!&ndash;        <div>Статус: <span id="status" class="status">Отключено</span></div>&ndash;&gt;-->
-<!--&lt;!&ndash;    </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;    &lt;!&ndash; 2. Индикатор живого режима &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;    <div id="liveBox">&ndash;&gt;-->
-<!--&lt;!&ndash;        ⚡ РЕЖИМ МГНОВЕННОГО ВВОДА АКТИВЕН ⚡<br>&ndash;&gt;-->
-<!--&lt;!&ndash;        <span style="font-size: 12px; font-weight: normal;">Любые нажатия на Bluetooth-клавиатуре улетают на ПК (без Enter)</span>&ndash;&gt;-->
-<!--&lt;!&ndash;    </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;    &lt;!&ndash; 3. Ручной ввод предложений целиком &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;    <div class="card">&ndash;&gt;-->
-<!--&lt;!&ndash;        <label>Отправить целое предложение разом (type_text):</label>&ndash;&gt;-->
-<!--&lt;!&ndash;        <div style="display: flex; gap: 8px;">&ndash;&gt;-->
-<!--&lt;!&ndash;            <input type="text" id="wordInput" placeholder="Привет с дивана...">&ndash;&gt;-->
-<!--&lt;!&ndash;            <button onclick="sendWord()" style="width: 120px; margin: 6px 0;">Send</button>&ndash;&gt;-->
-<!--&lt;!&ndash;        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;    </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;    &lt;!&ndash; Логи &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;    <h3>Логи команд:</h3>&ndash;&gt;-->
-<!--&lt;!&ndash;    <div id="logs"></div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;    <script>&ndash;&gt;-->
-<!--&lt;!&ndash;        let ws = null;&ndash;&gt;-->
-<!--&lt;!&ndash;        const pressedKeys = new Set();&ndash;&gt;-->
-
-<!--&lt;!&ndash;        // Маппер: переводит JS-названия клавиш в формат PyAutoGUI&ndash;&gt;-->
-<!--&lt;!&ndash;        function mapKey(key) {&ndash;&gt;-->
-<!--&lt;!&ndash;            const map = {&ndash;&gt;-->
-<!--&lt;!&ndash;                " ": "space",&ndash;&gt;-->
-<!--&lt;!&ndash;                "escape": "esc",&ndash;&gt;-->
-<!--&lt;!&ndash;                "arrowup": "up",&ndash;&gt;-->
-<!--&lt;!&ndash;                "arrowdown": "down",&ndash;&gt;-->
-<!--&lt;!&ndash;                "arrowleft": "left",&ndash;&gt;-->
-<!--&lt;!&ndash;                "arrowright": "right",&ndash;&gt;-->
-<!--&lt;!&ndash;                "control": "ctrl"&ndash;&gt;-->
-<!--&lt;!&ndash;            };&ndash;&gt;-->
-<!--&lt;!&ndash;            return map[key] || key;&ndash;&gt;-->
-<!--&lt;!&ndash;        }&ndash;&gt;-->
-
-<!--&lt;!&ndash;        function log(msg, isError = false) {&ndash;&gt;-->
-<!--&lt;!&ndash;            const logs = document.getElementById("logs");&ndash;&gt;-->
-<!--&lt;!&ndash;            const div = document.createElement("div");&ndash;&gt;-->
-<!--&lt;!&ndash;            div.className = isError ? "log-err" : "log-ok";&ndash;&gt;-->
-<!--&lt;!&ndash;            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;&ndash;&gt;-->
-<!--&lt;!&ndash;            logs.prepend(div);&ndash;&gt;-->
-<!--&lt;!&ndash;        }&ndash;&gt;-->
-
-<!--&lt;!&ndash;        function toggleConnect() {&ndash;&gt;-->
-<!--&lt;!&ndash;            if (ws) {&ndash;&gt;-->
-<!--&lt;!&ndash;                ws.close();&ndash;&gt;-->
-<!--&lt;!&ndash;            } else {&ndash;&gt;-->
-<!--&lt;!&ndash;                connect();&ndash;&gt;-->
-<!--&lt;!&ndash;            }&ndash;&gt;-->
-<!--&lt;!&ndash;        }&ndash;&gt;-->
-
-<!--&lt;!&ndash;        function connect() {&ndash;&gt;-->
-<!--&lt;!&ndash;            const token = document.getElementById("token").value;&ndash;&gt;-->
-<!--&lt;!&ndash;            if (!token) return alert("Введите токен!");&ndash;&gt;-->
-
-<!--&lt;!&ndash;            const host = window.location.host;&ndash;&gt;-->
-<!--&lt;!&ndash;            ws = new WebSocket(`ws://${host}/ws/execute?token=${encodeURIComponent(token)}`);&ndash;&gt;-->
-
-<!--&lt;!&ndash;            ws.onopen = () => {&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("status").textContent = "Подключено 🟢";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("status").style.color = "#4ade80";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("connectBtn").textContent = "Отключиться";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("connectBtn").className = "disconnect";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("liveBox").style.display = "block";&ndash;&gt;-->
-<!--&lt;!&ndash;                log("WebSocket канал открыт");&ndash;&gt;-->
-<!--&lt;!&ndash;            };&ndash;&gt;-->
-
-<!--&lt;!&ndash;            ws.onmessage = (event) => {&ndash;&gt;-->
-<!--&lt;!&ndash;                const res = JSON.parse(event.data);&ndash;&gt;-->
-<!--&lt;!&ndash;                if (res.status === "error") {&ndash;&gt;-->
-<!--&lt;!&ndash;                    log(`ОШИБКА: ${res.message}`, true);&ndash;&gt;-->
-<!--&lt;!&ndash;                }&ndash;&gt;-->
-<!--&lt;!&ndash;            };&ndash;&gt;-->
-
-<!--&lt;!&ndash;            ws.onclose = (e) => {&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("status").textContent = "Отключено 🔴";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("status").style.color = "#f87171";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("connectBtn").textContent = "Подключиться";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("connectBtn").className = "";&ndash;&gt;-->
-<!--&lt;!&ndash;                document.getElementById("liveBox").style.display = "none";&ndash;&gt;-->
-<!--&lt;!&ndash;                log(`Соединение закрыто (код: ${e.code})`, true);&ndash;&gt;-->
-<!--&lt;!&ndash;                ws = null;&ndash;&gt;-->
-<!--&lt;!&ndash;                pressedKeys.clear();&ndash;&gt;-->
-<!--&lt;!&ndash;            };&ndash;&gt;-->
-<!--&lt;!&ndash;        }&ndash;&gt;-->
-
-<!--&lt;!&ndash;        function sendWord() {&ndash;&gt;-->
-<!--&lt;!&ndash;            const input = document.getElementById("wordInput");&ndash;&gt;-->
-<!--&lt;!&ndash;            if (!ws || ws.readyState !== WebSocket.OPEN) return alert("Сначала подключитесь!");&ndash;&gt;-->
-<!--&lt;!&ndash;            if (!input.value) return;&ndash;&gt;-->
-
-<!--&lt;!&ndash;            ws.send(JSON.stringify({ action: "type", parameter: input.value }));&ndash;&gt;-->
-<!--&lt;!&ndash;            log(`📝 Отправлен текст: "${input.value}"`);&ndash;&gt;-->
-<!--&lt;!&ndash;            input.value = "";&ndash;&gt;-->
-<!--&lt;!&ndash;        }&ndash;&gt;-->
-
-<!--&lt;!&ndash;        // =================================================================&ndash;&gt;-->
-<!--&lt;!&ndash;        // ГЛАВНОЕ: ГЛОБАЛЬНЫЙ ПЕРЕХВАТ КЛАВИАТУРЫ (INSTANT RELAY)&ndash;&gt;-->
-<!--&lt;!&ndash;        // =================================================================&ndash;&gt;-->
-<!--&lt;!&ndash;        window.addEventListener("keydown", (e) => {&ndash;&gt;-->
-<!--&lt;!&ndash;            if (!ws || ws.readyState !== WebSocket.OPEN) return;&ndash;&gt;-->
-<!--&lt;!&ndash;            // Если фокус в текстовом поле для токена или слова - не перехватываем&ndash;&gt;-->
-<!--&lt;!&ndash;            if (e.target.tagName === "INPUT") return;&ndash;&gt;-->
-
-<!--&lt;!&ndash;            e.preventDefault(); // Блокируем скролл страницы от пробела/стрелок&ndash;&gt;-->
-
-<!--&lt;!&ndash;            const key = mapKey(e.key.toLowerCase());&ndash;&gt;-->
-<!--&lt;!&ndash;            if (pressedKeys.has(key)) return; // Защита от автоповтора при зажатии&ndash;&gt;-->
-<!--&lt;!&ndash;            pressedKeys.add(key);&ndash;&gt;-->
-
-<!--&lt;!&ndash;            // Отправляем команду зажать клавишу (для игр и печати)&ndash;&gt;-->
-<!--&lt;!&ndash;            ws.send(JSON.stringify({ action: "down", parameter: key }));&ndash;&gt;-->
-<!--&lt;!&ndash;            log(`⬇ DOWN: ${key}`);&ndash;&gt;-->
-<!--&lt;!&ndash;        });&ndash;&gt;-->
-
-<!--&lt;!&ndash;        window.addEventListener("keyup", (e) => {&ndash;&gt;-->
-<!--&lt;!&ndash;            if (!ws || ws.readyState !== WebSocket.OPEN) return;&ndash;&gt;-->
-<!--&lt;!&ndash;            if (e.target.tagName === "INPUT") return;&ndash;&gt;-->
-
-<!--&lt;!&ndash;            const key = mapKey(e.key.toLowerCase());&ndash;&gt;-->
-<!--&lt;!&ndash;            pressedKeys.delete(key);&ndash;&gt;-->
-
-<!--&lt;!&ndash;            // Отправляем команду отпустить клавишу&ndash;&gt;-->
-<!--&lt;!&ndash;            ws.send(JSON.stringify({ action: "up", parameter: key }));&ndash;&gt;-->
-<!--&lt;!&ndash;            log(`⬆ UP: ${key}`);&ndash;&gt;-->
-<!--&lt;!&ndash;        });&ndash;&gt;-->
-<!--&lt;!&ndash;    </script>&ndash;&gt;-->
-<!--&lt;!&ndash;</body>&ndash;&gt;-->
-<!--&lt;!&ndash;</html>&ndash;&gt;-->
-
-
-
-<!--<!DOCTYPE html>-->
-<!--<html lang="ru">-->
-<!--<head>-->
-<!--<meta charset="UTF-8">-->
-<!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">-->
-<!--<title>Shadow Admin</title>-->
-<!--<style>-->
-<!--:root {-->
-<!--    &#45;&#45;bg: #06060d; &#45;&#45;surface: #0d0d1a; &#45;&#45;border: #1a1a33;-->
-<!--    &#45;&#45;cyan: #00f0ff; &#45;&#45;magenta: #d000ff; &#45;&#45;green: #00ff41;-->
-<!--    &#45;&#45;red: #ff3344; &#45;&#45;amber: #ffaa00; &#45;&#45;text: #c8c8d0; &#45;&#45;dim: #666680;-->
-<!--}-->
-<!--* { box-sizing: border-box; margin: 0; padding: 0; }-->
-<!--body {-->
-<!--    font-family: 'SF Mono','Cascadia Code','Consolas','Monaco',monospace;-->
-<!--    background: var(&#45;&#45;bg); min-height: 100vh; color: var(&#45;&#45;text); overflow-x: hidden;-->
-<!--}-->
-<!--#particleCanvas { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }-->
-<!--.container { position:relative; z-index:1; max-width:720px; margin:0 auto; padding:16px; }-->
-<!--.header { text-align:center; padding:24px 0 6px; }-->
-<!--.header .logo { font-size:26px; font-weight:700; letter-spacing:3px; color:var(&#45;&#45;cyan); text-shadow:0 0 20px rgba(0,240,255,0.6); text-transform:uppercase; }-->
-<!--.header .subtitle { font-size:10px; color:var(&#45;&#45;dim); letter-spacing:5px; margin-top:3px; text-transform:uppercase; }-->
-<!--.header .version { font-size:9px; color:var(&#45;&#45;magenta); opacity:0.5; letter-spacing:2px; margin-top:2px; }-->
-<!--.card {-->
-<!--    background: var(&#45;&#45;surface); border:1px solid var(&#45;&#45;border); border-radius:6px;-->
-<!--    padding:16px; margin-bottom:12px; position:relative;-->
-<!--    animation: cardBorder 6s ease-in-out infinite;-->
-<!--}-->
-<!--@keyframes cardBorder { 0%,100%{border-color:var(&#45;&#45;border)} 50%{border-color:rgba(0,240,255,0.12)} }-->
-<!--.card h2 { font-size:11px; text-transform:uppercase; letter-spacing:3px; color:var(&#45;&#45;cyan); margin-bottom:12px; font-weight:400; }-->
-<!--input, textarea {-->
-<!--    font-family:inherit; background:#080812; border:1px solid var(&#45;&#45;border); border-radius:4px;-->
-<!--    color:#e0e0e8; padding:10px 12px; font-size:13px; outline:none; width:100%;-->
-<!--    transition:border-color 0.25s, box-shadow 0.25s;-->
-<!--}-->
-<!--input:focus,textarea:focus { border-color:var(&#45;&#45;cyan); box-shadow:0 0 10px rgba(0,240,255,0.12); }-->
-<!--input::placeholder,textarea::placeholder { color:#3a3a50; }-->
-<!--textarea { resize:vertical; min-height:80px; line-height:1.5; }-->
-<!--.btn {-->
-<!--    font-family:inherit; font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase;-->
-<!--    padding:10px 18px; border:1px solid; border-radius:4px; cursor:pointer; transition:all 0.2s;-->
-<!--    white-space:nowrap; text-align:center;-->
-<!--}-->
-<!--.btn-primary { background:rgba(0,240,255,0.08); border-color:var(&#45;&#45;cyan); color:var(&#45;&#45;cyan); text-shadow:0 0 8px rgba(0,240,255,0.4); }-->
-<!--.btn-primary:hover { background:rgba(0,240,255,0.15); box-shadow:0 0 18px rgba(0,240,255,0.25); }-->
-<!--.btn-primary:active { background:rgba(0,240,255,0.2); transform:scale(0.97); }-->
-<!--.btn-primary:disabled { opacity:0.35; cursor:not-allowed; }-->
-<!--.btn-danger { background:rgba(255,51,68,0.08); border-color:var(&#45;&#45;red); color:var(&#45;&#45;red); }-->
-<!--.btn-danger:hover { background:rgba(255,51,68,0.15); box-shadow:0 0 18px rgba(255,51,68,0.2); }-->
-<!--.btn-secondary { background:transparent; border-color:var(&#45;&#45;border); color:var(&#45;&#45;dim); }-->
-<!--.btn-secondary:hover { border-color:var(&#45;&#45;cyan); color:#bbb; }-->
-<!--.btn-sm { padding:6px 12px; font-size:9px; letter-spacing:1px; }-->
-<!--.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }-->
-<!--.row > input { flex:1; min-width:120px; }-->
-<!--.host-row { display:flex; flex:1; min-width:120px; position:relative; }-->
-<!--.host-row input { padding-right:36px; width:100%; }-->
-<!--.eye-btn { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(&#45;&#45;dim); cursor:pointer; font-size:14px; padding:4px 6px; line-height:1; z-index:2; }-->
-<!--.eye-btn:hover { color:var(&#45;&#45;cyan); }-->
-<!--.status-bar { display:flex; align-items:center; gap:8px; }-->
-<!--.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }-->
-<!--.dot.off { background:#444; }-->
-<!--.dot.on { background:var(&#45;&#45;green); box-shadow:0 0 12px var(&#45;&#45;green); animation:glow 2s ease-in-out infinite; }-->
-<!--.dot.wait { background:var(&#45;&#45;amber); box-shadow:0 0 10px var(&#45;&#45;amber); animation:blink 0.8s ease-in-out infinite; }-->
-<!--@keyframes glow { 0%,100%{box-shadow:0 0 8px var(&#45;&#45;green)} 50%{box-shadow:0 0 20px var(&#45;&#45;green),0 0 40px rgba(0,255,65,0.4)} }-->
-<!--@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }-->
-<!--.tabs { display:flex; gap:5px; margin-bottom:10px; }-->
-<!--.tab { flex:1; padding:9px; text-align:center; font-size:10px; letter-spacing:2px; text-transform:uppercase; background:transparent; border:1px solid var(&#45;&#45;border); border-radius:4px; color:var(&#45;&#45;dim); cursor:pointer; transition:all 0.25s; }-->
-<!--.tab.active { border-color:var(&#45;&#45;cyan); color:var(&#45;&#45;cyan); background:rgba(0,240,255,0.05); }-->
-<!--.tab:hover:not(.active) { border-color:#444; color:#999; }-->
-<!--.tab-panel { display:none; }-->
-<!--.tab-panel.active { display:block; }-->
-<!--.log-box { background:#04040c; border:1px solid var(&#45;&#45;border); border-radius:4px; padding:10px; max-height:220px; overflow-y:auto; font-size:10px; line-height:1.6; }-->
-<!--.log-box::-webkit-scrollbar { width:3px; }-->
-<!--.log-box::-webkit-scrollbar-track { background:transparent; }-->
-<!--.log-box::-webkit-scrollbar-thumb { background:var(&#45;&#45;border); border-radius:2px; }-->
-<!--.log-line { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.02); word-break:break-all; animation:logSlide 0.3s ease-out; }-->
-<!--@keyframes logSlide { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }-->
-<!--.log-line.ok{color:var(&#45;&#45;green)} .log-line.err{color:var(&#45;&#45;red)} .log-line.info{color:var(&#45;&#45;cyan)} .log-line.warn{color:var(&#45;&#45;amber)} .log-line.system{color:var(&#45;&#45;dim)}-->
-<!--.stream-preview { width:100%; max-height:300px; overflow:hidden; background:#000; border-radius:4px; border:1px solid var(&#45;&#45;border); position:relative; }-->
-<!--.stream-preview img { display:block; width:100%; height:auto; }-->
-<!--.stream-off-msg { display:flex; align-items:center; justify-content:center; height:140px; color:var(&#45;&#45;dim); font-size:10px; letter-spacing:2px; text-transform:uppercase; }-->
-
-<!--/* ===== FULLSCREEN OVERLAY ===== */-->
-<!--#fsOverlay {-->
-<!--    display:none; position:fixed; top:0; left:0; width:100vw; height:100vh;-->
-<!--    z-index:10000; background:#000; overflow:hidden;-->
-<!--    touch-action:none; -webkit-touch-callout:none;-->
-<!--    -webkit-user-select:none; user-select:none; outline:none;-->
-<!--}-->
-<!--#fsOverlay.active { display:block; }-->
-<!--#fsImg { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }-->
-
-<!--/* Hidden input to capture keyboard on mobile */-->
-<!--#fsKeyboardGrab {-->
-<!--    position:fixed; top:-100px; left:-100px; width:1px; height:1px;-->
-<!--    opacity:0; font-size:16px; z-index:10001;-->
-<!--}-->
-
-<!--/* Controls bar (top) */-->
-<!--#fsBar {-->
-<!--    position:fixed; top:0; left:0; right:0; z-index:10010;-->
-<!--    display:flex; align-items:center; gap:6px; padding:8px 10px;-->
-<!--    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);-->
-<!--    opacity:1; transition:opacity 0.4s; flex-wrap:wrap;-->
-<!--}-->
-<!--#fsBar.hidden { opacity:0; pointer-events:none; }-->
-<!--#fsBar .fs-btn {-->
-<!--    font-family:inherit; font-size:9px; letter-spacing:1px;-->
-<!--    background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);-->
-<!--    color:#fff; border-radius:4px; padding:6px 10px; cursor:pointer; white-space:nowrap;-->
-<!--}-->
-<!--#fsBar .fs-btn:active { background:rgba(255,255,255,0.25); }-->
-<!--#fsBar .fs-btn.active-btn { background:rgba(0,240,255,0.2); border-color:var(&#45;&#45;cyan); color:var(&#45;&#45;cyan); }-->
-<!--#fsMode { font-size:9px; color:var(&#45;&#45;amber); letter-spacing:1px; margin-left:auto; }-->
-<!--#fsScrollHint {-->
-<!--    position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:10010;-->
-<!--    background:rgba(0,0,0,0.7); color:#fff; font-size:11px; padding:6px 14px;-->
-<!--    border-radius:20px; letter-spacing:1px; opacity:0; transition:opacity 0.3s; pointer-events:none;-->
-<!--}-->
-<!--#fsCoords {-->
-<!--    position:fixed; bottom:12px; right:12px; z-index:10010;-->
-<!--    font-size:9px; color:rgba(255,255,255,0.4); font-family:monospace; pointer-events:none;-->
-<!--}-->
-
-<!--/* ===== MAGNIFIER ===== */-->
-<!--#fsLoupe {-->
-<!--    display:none; position:fixed; z-index:10020; pointer-events:none;-->
-<!--    width:160px; height:160px; border-radius:50%;-->
-<!--    border:2px solid var(&#45;&#45;cyan); box-shadow:0 0 20px rgba(0,240,255,0.4), 0 0 60px rgba(0,0,0,0.6);-->
-<!--    overflow:hidden; background:#000;-->
-<!--    /* The magnified image is drawn via canvas */-->
-<!--}-->
-<!--#fsLoupe canvas { display:block; }-->
-<!--#fsLoupeCrosshair {-->
-<!--    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);-->
-<!--    width:8px; height:8px; z-index:10021;-->
-<!--}-->
-<!--#fsLoupeCrosshair::before, #fsLoupeCrosshair::after {-->
-<!--    content:''; position:absolute; background:var(&#45;&#45;red);-->
-<!--}-->
-<!--#fsLoupeCrosshair::before { top:3px; left:0; width:8px; height:2px; }-->
-<!--#fsLoupeCrosshair::after { top:0; left:3px; width:2px; height:8px; }-->
-
-<!--/* Keyboard hint */-->
-<!--#fsKeyHint {-->
-<!--    position:fixed; bottom:50%; left:50%; transform:translate(-50%,-50%); z-index:10010;-->
-<!--    background:rgba(0,0,0,0.8); color:var(&#45;&#45;cyan); font-size:20px; padding:8px 20px;-->
-<!--    border-radius:8px; letter-spacing:2px; opacity:0; transition:opacity 0.15s;-->
-<!--    pointer-events:none; text-shadow:0 0 10px var(&#45;&#45;cyan);-->
-<!--}-->
-
-<!--.banner {-->
-<!--    border:1px solid rgba(255,170,0,0.2); background:rgba(255,170,0,0.03);-->
-<!--    border-radius:4px; padding:10px 14px; margin-bottom:12px; font-size:10px; color:var(&#45;&#45;amber);-->
-<!--}-->
-<!--.banner strong { display:block; margin-bottom:3px; letter-spacing:2px; text-transform:uppercase; font-size:9px; }-->
-<!--.hint { font-size:9px; color:var(&#45;&#45;dim); margin-top:6px; letter-spacing:1px; }-->
-<!--.hint kbd { display:inline-block; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:3px; padding:1px 6px; font-family:inherit; font-size:9px; margin:0 1px; color:#999; }-->
-<!--.highlight { color:var(&#45;&#45;cyan); }-->
-
-<!--@media (max-width:600px) {-->
-<!--    .container { padding:6px; }-->
-<!--    .header .logo { font-size:20px; }-->
-<!--    .card { padding:10px; }-->
-<!--    .row { flex-direction:column; }-->
-<!--    .row > input,.host-row { width:100%; }-->
-<!--    .tabs { flex-direction:column; }-->
-<!--    .btn { width:100%; }-->
-<!--    .stream-preview { max-height:200px; }-->
-<!--    #fsLoupe { width:120px; height:120px; }-->
-<!--}-->
-<!--</style>-->
-<!--</head>-->
-<!--<body>-->
-
-<!--<canvas id="particleCanvas"></canvas>-->
-
-<!--<div class="container">-->
-<!--    <div class="header">-->
-<!--        <div class="logo">◆ Shadow Admin</div>-->
-<!--        <div class="subtitle">Remote Control Panel</div>-->
-<!--        <div class="version">v3.1</div>-->
-<!--    </div>-->
-<!--    <div class="banner">-->
-<!--        <strong>Внимание</strong>-->
-<!--        Сервер должен быть запущен. С телефона — укажите локальный IP ПК. Не используйте localhost.-->
-<!--    </div>-->
-
-<!--    <div class="card">-->
-<!--        <h2>▸ Соединение</h2>-->
-<!--        <div class="row" style="margin-bottom:8px;">-->
-<!--            <div class="host-row">-->
-<!--                <input type="password" id="serverHost" value="localhost" placeholder="IP / хост" spellcheck="false" autocomplete="off">-->
-<!--                <button type="button" id="hostEye" class="eye-btn" onclick="toggleHostEye()">👁</button>-->
-<!--            </div>-->
-<!--            <span style="color:var(&#45;&#45;dim);font-size:10px;">:8000</span>-->
-<!--        </div>-->
-<!--        <div class="row" style="margin-bottom:8px;">-->
-<!--            <input type="password" id="token" placeholder="API_SECRET_KEY" autocomplete="off" spellcheck="false">-->
-<!--            <button class="btn btn-primary" id="connectBtn" onclick="doConnect()">Connect</button>-->
-<!--        </div>-->
-<!--        <div class="status-bar">-->
-<!--            <div class="dot off" id="dot"></div>-->
-<!--            <span id="statusLabel" style="font-size:10px;letter-spacing:2px;color:var(&#45;&#45;dim);">OFFLINE</span>-->
-<!--        </div>-->
-<!--    </div>-->
-
-<!--    <div class="card">-->
-<!--        <h2>▸ Управление</h2>-->
-<!--        <div class="tabs">-->
-<!--            <div class="tab active" data-mode="smart" onclick="setMode('smart')">⚡ Смарт</div>-->
-<!--            <div class="tab" data-mode="keydown" onclick="setMode('keydown')">⌨ Клавиши</div>-->
-<!--            <div class="tab" data-mode="type" onclick="setMode('type')">📝 Текст</div>-->
-<!--        </div>-->
-<!--        <div class="tab-panel active" id="panelSmart">-->
-<!--            <textarea id="smartEditor" placeholder="Пишите здесь — символы сразу на ПК..."></textarea>-->
-<!--            <div class="row" style="margin-top:6px;">-->
-<!--                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('smartEditor').value=''">Очистить</button>-->
-<!--                <span class="hint">ПК + телефон. Enter, Backspace, Delete работают.</span>-->
-<!--            </div>-->
-<!--        </div>-->
-<!--        <div class="tab-panel" id="panelKeydown">-->
-<!--            <textarea id="keyEditor" placeholder="Фокус сюда → жмите клавиши (ПК)..."></textarea>-->
-<!--            <div class="hint" style="margin-top:6px;">-->
-<!--                <kbd>Enter</kbd><kbd>Backspace</kbd><kbd>Space</kbd><kbd>↑↓←→</kbd><kbd>Tab</kbd><kbd>Esc</kbd>-->
-<!--                <br>Телефон — используйте <span class="highlight">Смарт</span>.-->
-<!--            </div>-->
-<!--        </div>-->
-<!--        <div class="tab-panel" id="panelType">-->
-<!--            <div class="row">-->
-<!--                <input type="text" id="typeInput" placeholder="Текст для отправки...">-->
-<!--                <button class="btn btn-primary btn-sm" onclick="sendType()">Отправить</button>-->
-<!--            </div>-->
-<!--            <div class="hint">Строка целиком через pydirectinput.write()</div>-->
-<!--        </div>-->
-<!--    </div>-->
-
-<!--    <div class="card">-->
-<!--        <h2>▸ Быстрые команды</h2>-->
-<!--        <div class="row">-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','enter')">Enter</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','backspace')">⌫</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','tab')">Tab</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','escape')">Esc</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','space')">Space</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','delete')">Del</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','up')">↑</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','down')">↓</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','left')">←</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','right')">→</button>-->
-<!--        </div>-->
-<!--        <div class="row" style="margin-top:6px;">-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumeup')">Vol+</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumedown')">Vol-</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','volumemute')">Mute</button>-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="sendQuick('press','printscreen')">PrtSc</button>-->
-<!--        </div>-->
-<!--    </div>-->
-
-<!--    <div class="card" id="streamCard" style="display:none;">-->
-<!--        <h2>▸ Стрим</h2>-->
-<!--        <div class="stream-preview" id="streamWrap">-->
-<!--            <div class="stream-off-msg" id="streamOff">Стрим не активен</div>-->
-<!--            <img id="streamImg" style="display:none;" alt="stream" crossorigin="anonymous">-->
-<!--        </div>-->
-<!--        <div class="row" style="margin-top:8px;">-->
-<!--            <button class="btn btn-sm btn-secondary" id="streamToggleBtn" onclick="toggleStream()">▶ Запустить</button>-->
-<!--            <button class="btn btn-sm btn-primary" id="fsBtn" onclick="enterFullscreen()" style="display:none;">⛶ Полный экран</button>-->
-<!--            <span class="hint" id="streamHint"></span>-->
-<!--        </div>-->
-<!--    </div>-->
-
-<!--    <div class="card">-->
-<!--        <h2>▸ Логи</h2>-->
-<!--        <div class="log-box" id="logBox">-->
-<!--            <div class="log-line system">[sys] Готов. Ключ + хост → Connect.</div>-->
-<!--        </div>-->
-<!--        <div class="row" style="margin-top:6px;">-->
-<!--            <button class="btn btn-sm btn-secondary" onclick="clearLogs()">Очистить</button>-->
-<!--        </div>-->
-<!--    </div>-->
-<!--</div>-->
-
-<!--&lt;!&ndash; Fullscreen overlay &ndash;&gt;-->
-<!--<div id="fsOverlay" tabindex="0">-->
-<!--    <img id="fsImg" src="" alt="fullscreen" draggable="false">-->
-<!--    <canvas id="fsLoupeCanvas" width="480" height="480" style="display:none;"></canvas>-->
-<!--</div>-->
-
-<!--<div id="fsBar">-->
-<!--    <button class="fs-btn" onclick="exitFullscreen()">✕</button>-->
-<!--    <button class="fs-btn" id="fsBtnClick" onclick="setFsMode('click')">🖱 Клик</button>-->
-<!--    <button class="fs-btn" id="fsBtnMove" onclick="setFsMode('move')">➤ Курсор</button>-->
-<!--    <button class="fs-btn" id="fsBtnLoupe" onclick="setFsMode('loupe')">🔍 Лупа</button>-->
-<!--    <span id="fsMode" style="margin-left:auto;"></span>-->
-<!--</div>-->
-
-<!--<div id="fsLoupe">-->
-<!--    <canvas id="loupeCanvas" width="480" height="480"></canvas>-->
-<!--    <div id="fsLoupeCrosshair"></div>-->
-<!--</div>-->
-
-<!--<input type="text" id="fsKeyboardGrab" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">-->
-
-<!--<div id="fsScrollHint"></div>-->
-<!--<div id="fsCoords"></div>-->
-<!--<div id="fsKeyHint"></div>-->
-
-<!--<script>-->
-<!--(function() {-->
-<!--    'use strict';-->
-
-<!--    // ── State ──-->
-<!--    var ws = null, mode = 'smart', connected = false, streamActive = false;-->
-<!--    var fsMode = 'click';-->
-<!--    var fsActive = false;-->
-
-<!--    // ── DOM ──-->
-<!--    var $ = function(id) { return document.getElementById(id); };-->
-<!--    var serverHostEl = $('serverHost'), hostEyeBtn = $('hostEye'), tokenEl = $('token');-->
-<!--    var connectBtn = $('connectBtn'), dotEl = $('dot'), statusLabel = $('statusLabel');-->
-<!--    var logBox = $('logBox');-->
-<!--    var smartEditor = $('smartEditor'), keyEditor = $('keyEditor'), typeInput = $('typeInput');-->
-<!--    var streamCard = $('streamCard'), streamImg = $('streamImg'), streamWrap = $('streamWrap');-->
-<!--    var streamOff = $('streamOff'), streamToggleBtn = $('streamToggleBtn'), streamHint = $('streamHint');-->
-<!--    var fsBtn = $('fsBtn'), fsOverlay = $('fsOverlay'), fsImg = $('fsImg'), fsCanvas = $('fsLoupeCanvas');-->
-<!--    var fsBar = $('fsBar'), fsBtnClick = $('fsBtnClick'), fsBtnMove = $('fsBtnMove'), fsBtnLoupe = $('fsBtnLoupe'), fsModeEl = $('fsMode');-->
-<!--    var fsScrollHint = $('fsScrollHint'), fsCoords = $('fsCoords'), fsKeyHint = $('fsKeyHint');-->
-<!--    var fsLoupe = $('fsLoupe'), loupeCanvas = $('loupeCanvas'), loupeCtx = loupeCanvas.getContext('2d');-->
-<!--    var fsKeyboardGrab = $('fsKeyboardGrab');-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  PARTICLES-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var canvas = $('particleCanvas'), ctx = canvas.getContext('2d');-->
-<!--    var particles = [];-->
-<!--    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }-->
-<!--    function createParticle() {-->
-<!--        return {-->
-<!--            x:Math.random()*canvas.width, y:Math.random()*canvas.height,-->
-<!--            vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5,-->
-<!--            size:Math.random()*1.8+0.4, alpha:Math.random()*0.5+0.05,-->
-<!--            alphaSpeed:(Math.random()-0.5)*0.01, pulse:Math.random()*Math.PI*2,-->
-<!--            color:['#00f0ff','#d000ff','#00ff41'][Math.floor(Math.random()*3)]-->
-<!--        };-->
-<!--    }-->
-<!--    function initParticles() { particles=[]; for(var i=0;i<50;i++) particles.push(createParticle()); }-->
-<!--    function drawParticles() {-->
-<!--        ctx.clearRect(0,0,canvas.width,canvas.height);-->
-<!--        for(var i=0;i<particles.length;i++) {-->
-<!--            var p=particles[i];-->
-<!--            p.x+=p.vx; p.y+=p.vy; p.alpha+=p.alphaSpeed; p.pulse+=0.02;-->
-<!--            if(p.x<-10)p.x=canvas.width+10; if(p.x>canvas.width+10)p.x=-10;-->
-<!--            if(p.y<-10)p.y=canvas.height+10; if(p.y>canvas.height+10)p.y=-10;-->
-<!--            if(p.alpha>0.6||p.alpha<0.03)p.alphaSpeed*=-1;-->
-<!--            var glow=p.size+Math.sin(p.pulse)*1.5;-->
-<!--            ctx.beginPath(); ctx.arc(p.x,p.y,glow+2,0,Math.PI*2);-->
-<!--            var rgba=p.color==='#00f0ff'?'rgba(0,240,255,0.06)':p.color==='#d000ff'?'rgba(208,0,255,0.06)':'rgba(0,255,65,0.06)';-->
-<!--            ctx.fillStyle=rgba; ctx.fill();-->
-<!--            ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2);-->
-<!--            var core=p.color==='#00f0ff'?'rgba(0,240,255,'+p.alpha+')':p.color==='#d000ff'?'rgba(208,0,255,'+p.alpha+')':'rgba(0,255,65,'+p.alpha+')';-->
-<!--            ctx.fillStyle=core; ctx.fill();-->
-<!--        }-->
-<!--        for(var i=0;i<particles.length;i++) {-->
-<!--            for(var j=i+1;j<particles.length;j++) {-->
-<!--                var dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;-->
-<!--                var dist=Math.sqrt(dx*dx+dy*dy);-->
-<!--                if(dist<90) { ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.strokeStyle='rgba(0,240,255,'+((1-dist/90)*0.06)+')'; ctx.lineWidth=0.4; ctx.stroke(); }-->
-<!--            }-->
-<!--        }-->
-<!--        requestAnimationFrame(drawParticles);-->
-<!--    }-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  HELPERS-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    window.toggleHostEye = function() {-->
-<!--        if(serverHostEl.type==='password'){serverHostEl.type='text';hostEyeBtn.textContent='🙈';}-->
-<!--        else{serverHostEl.type='password';hostEyeBtn.textContent='👁';}-->
-<!--    };-->
-<!--    function log(msg,cls) {-->
-<!--        var div=document.createElement('div'); div.className='log-line '+(cls||'system');-->
-<!--        var now=new Date();-->
-<!--        var ts=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);-->
-<!--        div.textContent='['+ts+'] '+msg; logBox.appendChild(div); logBox.scrollTop=logBox.scrollHeight;-->
-<!--    }-->
-<!--    window.clearLogs = function(){logBox.innerHTML='';log('Очищено','system');};-->
-<!--    function setStatus(st) {-->
-<!--        dotEl.className='dot';-->
-<!--        if(st==='on'){dotEl.classList.add('on');statusLabel.textContent='CONNECTED';statusLabel.style.color='var(&#45;&#45;green)';}-->
-<!--        else if(st==='wait'){dotEl.classList.add('wait');statusLabel.textContent='CONNECTING...';statusLabel.style.color='var(&#45;&#45;amber)';}-->
-<!--        else{dotEl.classList.add('off');statusLabel.textContent='OFFLINE';statusLabel.style.color='var(&#45;&#45;dim)';}-->
-<!--    }-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  SEND RAW-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    function sendRaw(action, parameter, x, y) {-->
-<!--        if(!ws||ws.readyState!==WebSocket.OPEN){log('Нет соединения','err');return false;}-->
-<!--        try {-->
-<!--            var msg={action:action};-->
-<!--            if(parameter!==undefined&&parameter!==null)msg.parameter=parameter;-->
-<!--            if(typeof x==='number')msg.x=x;-->
-<!--            if(typeof y==='number')msg.y=y;-->
-<!--            ws.send(JSON.stringify(msg));-->
-<!--            return true;-->
-<!--        }catch(e){log('Ошибка: '+e.message,'err');return false;}-->
-<!--    }-->
-<!--    window.sendQuick = function(action,parameter) {-->
-<!--        if(!connected){log('Сначала подключитесь','warn');return;}-->
-<!--        sendRaw(action,parameter);-->
-<!--    };-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  CONNECTION-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    window.doConnect = function() {-->
-<!--        if(connected&&ws){ws.close(1000,'user disconnect');return;}-->
-<!--        var token=tokenEl.value.trim();-->
-<!--        if(!token){log('Введите API_SECRET_KEY','err');return;}-->
-<!--        var host=serverHostEl.value.trim()||'localhost';-->
-<!--        var url='ws://'+host+':8000/ws/execute?token='+encodeURIComponent(token);-->
-<!--        log('Подключение к '+host+':8000 ...','system');-->
-<!--        setStatus('wait'); connectBtn.textContent='...'; connectBtn.disabled=true;-->
-<!--        try{ws=new WebSocket(url);}-->
-<!--        catch(e){log('Сокет: '+e.message,'err');setStatus('off');connectBtn.textContent='Connect';connectBtn.disabled=false;return;}-->
-<!--        ws.onopen=function(){-->
-<!--            log('OK','ok'); setStatus('on'); connected=true;-->
-<!--            connectBtn.textContent='Disconnect'; connectBtn.className='btn btn-danger'; connectBtn.disabled=false;-->
-<!--            streamCard.style.display='block';-->
-<!--        };-->
-<!--        ws.onmessage=function(e){-->
-<!--            try{var d=JSON.parse(e.data);if(d.status==='success')log('OK: '+d.message,'ok');else log('Ошибка: '+(d.message||JSON.stringify(d)),'err');}-->
-<!--            catch(_){log('← '+e.data,'info');}-->
-<!--        };-->
-<!--        ws.onerror=function(){log('Ошибка WebSocket','err');};-->
-<!--        ws.onclose=function(e){-->
-<!--            log('Закрыто ('+e.code+')','system'); setStatus('off'); connected=false;-->
-<!--            connectBtn.textContent='Connect'; connectBtn.className='btn btn-primary'; connectBtn.disabled=false;-->
-<!--            stopStream(); streamCard.style.display='none'; ws=null;-->
-<!--            exitFullscreen();-->
-<!--        };-->
-<!--    };-->
-
-<!--    window.setMode = function(m) {-->
-<!--        mode=m;-->
-<!--        document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.mode===m);});-->
-<!--        document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.toggle('active',p.id==='panel'+m.charAt(0).toUpperCase()+m.slice(1));});-->
-<!--        log('Режим: '+{smart:'Смарт',keydown:'Клавиши',type:'Текст'}[m],'system');-->
-<!--    };-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  STREAM-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    function getStreamUrl() {-->
-<!--        return 'http://'+(serverHostEl.value.trim()||'localhost')+':8000/stream?token='+encodeURIComponent(tokenEl.value.trim());-->
-<!--    }-->
-<!--    window.toggleStream = function() {-->
-<!--        if(!connected){log('Сначала подключитесь','warn');return;}-->
-<!--        streamActive?stopStream():startStream();-->
-<!--    };-->
-<!--    function startStream() {-->
-<!--        var url=getStreamUrl();-->
-<!--        streamImg.onerror=function(){log('Ошибка стрима','err');stopStream();};-->
-<!--        streamImg.onload=function(){-->
-<!--            log('Стрим OK','ok');streamHint.textContent='OK';fsBtn.style.display='inline-block';-->
-<!--            if(fsActive) fsImg.src=streamImg.src;-->
-<!--        };-->
-<!--        streamImg.src=url; streamImg.style.display='block'; streamOff.style.display='none';-->
-<!--        streamActive=true; streamToggleBtn.textContent='■ Остановить';-->
-<!--        streamToggleBtn.style.color='var(&#45;&#45;red)'; streamToggleBtn.style.borderColor='var(&#45;&#45;red)';-->
-<!--    }-->
-<!--    function stopStream() {-->
-<!--        streamImg.onerror=null; streamImg.onload=null; streamImg.src='';-->
-<!--        streamImg.style.display='none'; streamOff.style.display='flex'; streamActive=false;-->
-<!--        streamToggleBtn.textContent='▶ Запустить'; streamToggleBtn.style.color=''; streamToggleBtn.style.borderColor='';-->
-<!--        streamHint.textContent=''; fsBtn.style.display='none';-->
-<!--        exitFullscreen();-->
-<!--    }-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  COORDINATES-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    function getCoords(e) {-->
-<!--        var rect = fsImg.getBoundingClientRect();-->
-<!--        var cx, cy;-->
-<!--        if(e.touches) {-->
-<!--            if(e.touches.length===0)return null;-->
-<!--            cx=e.touches[0].clientX; cy=e.touches[0].clientY;-->
-<!--        } else { cx=e.clientX; cy=e.clientY; }-->
-<!--        var nx=(cx-rect.left)/rect.width, ny=(cy-rect.top)/rect.height;-->
-<!--        nx=Math.max(0,Math.min(1,nx)); ny=Math.max(0,Math.min(1,ny));-->
-<!--        return {x:nx,y:ny,cx:cx,cy:cy,rect:rect};-->
-<!--    }-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  FULLSCREEN-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var fsBarTimer=null;-->
-
-<!--    function showFsBar() {-->
-<!--        fsBar.classList.remove('hidden');-->
-<!--        if(fsBarTimer)clearTimeout(fsBarTimer);-->
-<!--        fsBarTimer=setTimeout(function(){fsBar.classList.add('hidden');},3000);-->
-<!--    }-->
-
-<!--    function updateFsButtons() {-->
-<!--        fsBtnClick.classList.toggle('active-btn', fsMode==='click');-->
-<!--        fsBtnMove.classList.toggle('active-btn', fsMode==='move');-->
-<!--        fsBtnLoupe.classList.toggle('active-btn', fsMode==='loupe');-->
-<!--        var labels={click:'клик',move:'курсор',loupe:'лупа'};-->
-<!--        fsModeEl.textContent='режим: '+labels[fsMode];-->
-<!--    }-->
-
-<!--    window.setFsMode = function(m) {-->
-<!--        fsMode=m; updateFsButtons(); updateLoupeVisibility(); showFsBar();-->
-<!--        log('FS режим: '+{click:'клик',move:'курсор',loupe:'лупа'}[m],'info');-->
-<!--    };-->
-
-<!--    function updateLoupeVisibility() {-->
-<!--        fsLoupe.style.display = (fsMode==='loupe'&&fsActive) ? 'block' : 'none';-->
-<!--    }-->
-
-<!--    window.enterFullscreen = function() {-->
-<!--        if(!streamActive)return;-->
-<!--        fsImg.src=streamImg.src;-->
-<!--        fsOverlay.classList.add('active'); fsActive=true;-->
-<!--        updateFsButtons(); updateLoupeVisibility(); showFsBar();-->
-<!--        document.body.style.overflow='hidden';-->
-<!--        // Focus overlay so keyboard events are captured-->
-<!--        fsOverlay.focus();-->
-<!--        // On mobile: tap the hidden input to bring up keyboard-->
-<!--        if(isMobile) fsKeyboardGrab.focus();-->
-<!--        log('Полный экран','info');-->
-<!--    };-->
-
-<!--    window.exitFullscreen = function() {-->
-<!--        fsOverlay.classList.remove('active'); fsActive=false;-->
-<!--        fsImg.src=''; fsLoupe.style.display='none';-->
-<!--        document.body.style.overflow='';-->
-<!--        if(fsBarTimer)clearTimeout(fsBarTimer);-->
-<!--    };-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  LOUPE (magnifier)-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var loupeSize = 160; // px diameter-->
-<!--    var loupeZoom = 2.5;-->
-
-<!--    function drawLoupe(cx, cy, rect) {-->
-<!--        var LOUPE_R = loupeSize/2;-->
-<!--        // Position loupe centered on cursor, offset above-->
-<!--        var lx = cx - LOUPE_R, ly = cy - LOUPE_R - 40;-->
-<!--        // Keep on screen-->
-<!--        if(lx<10)lx=10; if(ly<10)ly=10;-->
-<!--        if(lx+loupeSize>window.innerWidth-10) lx=window.innerWidth-loupeSize-10;-->
-<!--        if(ly+loupeSize>window.innerHeight-10) ly=window.innerHeight-loupeSize-10;-->
-<!--        fsLoupe.style.left=lx+'px'; fsLoupe.style.top=ly+'px';-->
-
-<!--        // Source area in stream-image space-->
-<!--        var srcW = loupeSize / loupeZoom;-->
-<!--        var srcH = loupeSize / loupeZoom;-->
-<!--        var srcX = (cx - rect.left) - srcW/2;-->
-<!--        var srcY = (cy - rect.top) - srcH/2;-->
-<!--        // Clamp source-->
-<!--        if(srcX<0)srcX=0; if(srcY<0)srcY=0;-->
-<!--        if(srcX+srcW>rect.width) srcX=rect.width-srcW;-->
-<!--        if(srcY+srcH>rect.height) srcY=rect.height-srcH;-->
-<!--        if(srcX<0)srcX=0; if(srcY<0)srcY=0;-->
-
-<!--        // Scale from stream-image coords to actual img pixel coords-->
-<!--        var scaleX = fsImg.naturalWidth / rect.width;-->
-<!--        var scaleY = fsImg.naturalHeight / rect.height;-->
-<!--        var sx = srcX * scaleX, sy = srcY * scaleY;-->
-<!--        var sw = srcW * scaleX, sh = srcH * scaleY;-->
-
-<!--        // Draw magnified portion-->
-<!--        loupeCtx.clearRect(0,0,loupeSize,loupeSize);-->
-<!--        loupeCtx.save();-->
-<!--        // Clip to circle-->
-<!--        loupeCtx.beginPath();-->
-<!--        loupeCtx.arc(loupeSize/2, loupeSize/2, loupeSize/2, 0, Math.PI*2);-->
-<!--        loupeCtx.clip();-->
-<!--        // Draw scaled-->
-<!--        loupeCtx.drawImage(fsImg, sx, sy, sw, sh, 0, 0, loupeSize, loupeSize);-->
-<!--        loupeCtx.restore();-->
-<!--    }-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  KEYBOARD → pyautogui-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    function codeToKey(code) {-->
-<!--        if(!code)return'';-->
-<!--        if(code.indexOf('Key')===0&&code.length===4)return code.charAt(3).toLowerCase();-->
-<!--        if(code.indexOf('Digit')===0&&code.length===6)return code.charAt(5);-->
-<!--        if(code.indexOf('Numpad')===0&&/^\d$/.test(code.charAt(6)))return'num'+code.charAt(6);-->
-<!--        if(code==='NumpadAdd')return'numadd';if(code==='NumpadSubtract')return'numsubtract';-->
-<!--        if(code==='NumpadMultiply')return'nummultiply';if(code==='NumpadDivide')return'numdivide';-->
-<!--        if(code==='NumpadDecimal')return'numdecimal';if(code==='NumpadEnter')return'numenter';-->
-<!--        if(/^F\d+$/.test(code))return code.toLowerCase();-->
-<!--        var map={-->
-<!--            'Escape':'esc','Backspace':'backspace','Tab':'tab','Enter':'enter',-->
-<!--            'Space':'space','Delete':'delete','Insert':'insert','Home':'home',-->
-<!--            'End':'end','PageUp':'pageup','PageDown':'pagedown',-->
-<!--            'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',-->
-<!--            'CapsLock':'capslock','NumLock':'numlock','ScrollLock':'scrolllock',-->
-<!--            'PrintScreen':'printscreen','Pause':'pause',-->
-<!--            'VolumeUp':'volumeup','VolumeDown':'volumedown','VolumeMute':'volumemute',-->
-<!--            'Backquote':'`','Minus':'-','Equal':'=',-->
-<!--            'BracketLeft':'[','BracketRight':']','Backslash':'\\',-->
-<!--            'Semicolon':';','Quote':"'",'Comma':',','Period':'.','Slash':'/',-->
-<!--            'MediaPlayPause':'playpause','MediaTrackNext':'nexttrack','MediaTrackPrevious':'prevtrack'-->
-<!--        };-->
-<!--        return map[code]||'';-->
-<!--    }-->
-<!--    var MODS={ShiftLeft:1,ShiftRight:1,ControlLeft:1,ControlRight:1,AltLeft:1,AltRight:1,MetaLeft:1,MetaRight:1,OSLeft:1,OSRight:1,Fn:1};-->
-
-<!--    function handleFsKey(e) {-->
-<!--        if(!fsActive||!connected)return;-->
-<!--        var code=e.code, keyName='';-->
-<!--        if(code&&!MODS[code]) keyName=codeToKey(code);-->
-<!--        if(!keyName&&e.key&&e.key!=='Unidentified'&&e.key!=='Dead'){-->
-<!--            var kl=e.key.toLowerCase();-->
-<!--            if(kl.length===1)keyName=kl;-->
-<!--            else if(kl==='enter')keyName='enter';-->
-<!--            else if(kl==='backspace')keyName='backspace';-->
-<!--            else if(kl==='tab')keyName='tab';-->
-<!--            else if(kl==='escape')keyName='esc';-->
-<!--        }-->
-<!--        if(!keyName)return;-->
-<!--        e.preventDefault();e.stopPropagation();-->
-<!--        // Show key hint-->
-<!--        fsKeyHint.textContent=keyName; fsKeyHint.style.opacity='1';-->
-<!--        clearTimeout(fsKeyHint._t); fsKeyHint._t=setTimeout(function(){fsKeyHint.style.opacity='0';},200);-->
-<!--        if(keyName.length===1) sendRaw('type',keyName);-->
-<!--        else sendRaw('press',keyName);-->
-<!--    }-->
-
-<!--    // Keyboard on overlay element-->
-<!--    fsOverlay.addEventListener('keydown', handleFsKey);-->
-<!--    // Also globally when fullscreen active-->
-<!--    document.addEventListener('keydown', function(e) {-->
-<!--        if(!fsActive)return;-->
-<!--        // Let the overlay handler deal with it unless it's the hidden input on mobile-->
-<!--        if(e.target===fsKeyboardGrab) {-->
-<!--            // Mobile keyboard: capture the produced text-->
-<!--            return; // handled by input event below-->
-<!--        }-->
-<!--        handleFsKey(e);-->
-<!--    });-->
-
-<!--    // Mobile: hidden input captures keyboard text-->
-<!--    fsKeyboardGrab.addEventListener('input', function(e) {-->
-<!--        if(!fsActive||!connected)return;-->
-<!--        var val = fsKeyboardGrab.value;-->
-<!--        if(val.length>0) {-->
-<!--            sendRaw('type', val);-->
-<!--            fsKeyboardGrab.value='';-->
-<!--        }-->
-<!--    });-->
-
-<!--    // Focus grab on overlay click (to capture keyboard)-->
-<!--    fsOverlay.addEventListener('click', function(e) {-->
-<!--        if(fsActive) fsOverlay.focus();-->
-<!--    });-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  FS MOUSE / TOUCH-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var lastLoupeCoords=null;-->
-
-<!--    function handleFsPointer(e, isMove) {-->
-<!--        if(!fsActive||!connected)return;-->
-<!--        var coords=getCoords(e);-->
-<!--        if(!coords)return;-->
-<!--        showFsBar();-->
-
-<!--        // Loupe mode: draw magnifier-->
-<!--        if(fsMode==='loupe') {-->
-<!--            updateLoupeVisibility();-->
-<!--            drawLoupe(coords.cx, coords.cy, coords.rect);-->
-<!--            lastLoupeCoords=coords;-->
-<!--            if(!isMove) {-->
-<!--                // On tap in loupe mode → click at center of loupe-->
-<!--                sendRaw('click', null, coords.x, coords.y);-->
-<!--            }-->
-<!--            return;-->
-<!--        }-->
-
-<!--        if(isMove) {-->
-<!--            if(fsMode!=='move')return;-->
-<!--            sendRaw('move', null, coords.x, coords.y);-->
-<!--        } else {-->
-<!--            if(fsMode==='click') sendRaw('click', null, coords.x, coords.y);-->
-<!--            else sendRaw('move', null, coords.x, coords.y);-->
-<!--        }-->
-<!--    }-->
-
-<!--    fsOverlay.addEventListener('mousedown', function(e) { e.preventDefault(); handleFsPointer(e, false); });-->
-<!--    fsOverlay.addEventListener('touchstart', function(e) { e.preventDefault(); handleFsPointer(e, false); }, {passive:false});-->
-
-<!--    var moveThrottle=0;-->
-<!--    fsOverlay.addEventListener('mousemove', function(e) {-->
-<!--        if(!fsActive)return;-->
-<!--        var now=Date.now();-->
-<!--        if(fsMode==='loupe') {-->
-<!--            // Loupe: update every 60ms-->
-<!--            if(now-moveThrottle<60)return;-->
-<!--            moveThrottle=now;-->
-<!--            var c=getCoords(e); if(!c)return;-->
-<!--            drawLoupe(c.cx,c.cy,c.rect);-->
-<!--            lastLoupeCoords=c;-->
-<!--            return;-->
-<!--        }-->
-<!--        if(fsMode!=='move')return;-->
-<!--        if(now-moveThrottle<50)return; moveThrottle=now;-->
-<!--        handleFsPointer(e, true);-->
-<!--    });-->
-<!--    fsOverlay.addEventListener('touchmove', function(e) {-->
-<!--        if(!fsActive)return;-->
-<!--        e.preventDefault();-->
-<!--        var now=Date.now();-->
-<!--        if(fsMode==='loupe') {-->
-<!--            if(now-moveThrottle<60)return;-->
-<!--            moveThrottle=now;-->
-<!--            var c=getCoords(e); if(!c)return;-->
-<!--            drawLoupe(c.cx,c.cy,c.rect);-->
-<!--            lastLoupeCoords=c;-->
-<!--            return;-->
-<!--        }-->
-<!--        if(fsMode!=='move')return;-->
-<!--        if(now-moveThrottle<50)return; moveThrottle=now;-->
-<!--        handleFsPointer(e, true);-->
-<!--    }, {passive:false});-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  FS SCROLL-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var scrollAccum=0, scrollTimer=null;-->
-<!--    fsOverlay.addEventListener('wheel', function(e) {-->
-<!--        if(!fsActive||!connected)return;-->
-<!--        e.preventDefault();e.stopPropagation();-->
-<!--        var clicks=e.deltaY>0?Math.ceil(e.deltaY/100):Math.floor(e.deltaY/100);-->
-<!--        if(clicks===0)clicks=e.deltaY>0?1:-1;-->
-<!--        scrollAccum+=clicks;-->
-<!--        fsScrollHint.textContent='↕ '+(clicks>0?'+':'')+clicks;-->
-<!--        fsScrollHint.style.opacity='1';-->
-<!--        showFsBar();-->
-<!--        if(scrollTimer)clearTimeout(scrollTimer);-->
-<!--        scrollTimer=setTimeout(function(){-->
-<!--            if(scrollAccum!==0){sendRaw('scroll',String(scrollAccum));scrollAccum=0;}-->
-<!--        },80);-->
-<!--    },{passive:false});-->
-
-<!--    // Back button → exit fullscreen-->
-<!--    window.addEventListener('popstate', function() { if(fsActive) exitFullscreen(); });-->
-<!--    var _efs=window.enterFullscreen; window.enterFullscreen=function(){if(!streamActive)return;history.pushState({fs:1},'','#fs');_efs();};-->
-<!--    var _xfs=window.exitFullscreen; window.exitFullscreen=function(){_xfs();if(history.state&&history.state.fs)history.back();};-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  SMART MODE-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    var smartSkipInput=false;-->
-<!--    smartEditor.addEventListener('beforeinput', function(e) {-->
-<!--        if(!connected||mode!=='smart')return;-->
-<!--        var it=e.inputType, d=e.data;-->
-<!--        if(d&&(it==='insertText'||it==='insertCompositionText'||it==='insertFromPaste'||it==='insertFromDrop'||it==='insertReplacementText')){-->
-<!--            e.preventDefault(); smartSkipInput=true; sendRaw('type',d); return;-->
-<!--        }-->
-<!--        if(it==='insertLineBreak'||it==='insertParagraph'){e.preventDefault();smartSkipInput=true;sendRaw('press','enter');return;}-->
-<!--        if(it==='deleteContentBackward'||it==='deleteWordBackward'||it==='deleteSoftLineBackward'||it==='deleteHardLineBackward'){-->
-<!--            e.preventDefault();smartSkipInput=true;sendRaw('press','backspace');return;-->
-<!--        }-->
-<!--        if(it==='deleteContentForward'||it==='deleteWordForward'||it==='deleteSoftLineForward'||it==='deleteHardLineForward'){-->
-<!--            e.preventDefault();smartSkipInput=true;sendRaw('press','delete');return;-->
-<!--        }-->
-<!--    });-->
-<!--    var smartPrev='';-->
-<!--    smartEditor.addEventListener('input', function(e) {-->
-<!--        if(!connected||mode!=='smart')return;-->
-<!--        if(smartSkipInput){smartSkipInput=false;smartEditor.value='';smartPrev='';return;}-->
-<!--        var v=smartEditor.value;-->
-<!--        if(v.length>smartPrev.length){sendRaw('type',v.slice(smartPrev.length));}-->
-<!--        else if(v.length<smartPrev.length){for(var i=0;i<smartPrev.length-v.length;i++)sendRaw('press','backspace');}-->
-<!--        smartEditor.value='';smartPrev='';-->
-<!--    });-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  KEYDOWN MODE-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    keyEditor.addEventListener('keydown', function(e) {-->
-<!--        if(!connected||mode!=='keydown')return;-->
-<!--        var code=e.code,keyName='';-->
-<!--        if(code&&!MODS[code])keyName=codeToKey(code);-->
-<!--        if(!keyName&&e.key&&e.key!=='Unidentified'&&e.key!=='Dead'){-->
-<!--            var kl=e.key.toLowerCase();-->
-<!--            if(kl.length===1)keyName=kl;-->
-<!--            else if(kl==='enter')keyName='enter';else if(kl==='backspace')keyName='backspace';-->
-<!--            else if(kl==='tab')keyName='tab';else if(kl==='escape')keyName='esc';-->
-<!--        }-->
-<!--        if(!keyName)return;-->
-<!--        e.preventDefault();e.stopPropagation();-->
-<!--        keyName.length===1?sendRaw('type',keyName):sendRaw('press',keyName);-->
-<!--    });-->
-<!--    document.addEventListener('keydown', function(e) {-->
-<!--        if(!connected||mode!=='keydown')return;-->
-<!--        if(e.code==='Escape'&&document.activeElement===keyEditor){e.preventDefault();e.stopPropagation();if(!e.defaultPrevented)sendRaw('press','esc');}-->
-<!--    }, true);-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  TYPE MODE-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    window.sendType = function() {-->
-<!--        if(!connected){log('Сначала подключитесь','warn');return;}-->
-<!--        if(mode!=='type')setMode('type');-->
-<!--        var text=typeInput.value; if(!text)return;-->
-<!--        sendRaw('type',text); typeInput.value='';-->
-<!--    };-->
-<!--    typeInput.addEventListener('keydown', function(e) {if(e.key==='Enter'){e.preventDefault();window.sendType();}});-->
-
-<!--    // ═══════════════════════════════════════════-->
-<!--    //  INIT-->
-<!--    // ═══════════════════════════════════════════-->
-<!--    resizeCanvas(); initParticles(); drawParticles();-->
-<!--    window.addEventListener('resize', function(){resizeCanvas();initParticles();});-->
-
-<!--    var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);-->
-<!--    if(isMobile) {-->
-<!--        log('Мобильное устройство. Смарт-режим.','system');-->
-<!--        log('В фулскрине тап по экрану → появится клавиатура','system');-->
-<!--        // Smaller loupe on mobile-->
-<!--        loupeSize=120; loupeZoom=2;-->
-<!--        fsLoupe.style.width=loupeSize+'px'; fsLoupe.style.height=loupeSize+'px';-->
-<!--    }-->
-
-<!--})();-->
-<!--</script>-->
-<!--<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a29604804fbce918',t:'MTc4NjQzODQ4Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>-->
-<!--</html>-->
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -1088,6 +82,11 @@ input[type=text],input[type=password]{
   font-size:16px;
 }
 input:focus{outline:none;border-color:var(--cyan);}
+input[type=range]{
+  accent-color: var(--cyan);
+  height:6px;
+  background:transparent;
+}
 .input-with-btn{
   display:flex;gap:6px;
 }
@@ -1186,7 +185,6 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
 .log-error{color:var(--red);}
 .log-warn{color:var(--amber);}
 
-/* ============= FULLSCREEN OVERLAY (панель НЕ перекрывает видео, компактная, без переноса строк) ============= */
 .fs-overlay{
   position:fixed;inset:0;background:#000;z-index:10000;
   display:none;
@@ -1313,8 +311,8 @@ img.fs-img{
       <div class="hint">Каждый символ / Enter / Backspace / Delete отправляется мгновенно. Работает на ПК и телефоне.</div>
     </div>
     <div class="tab-panel" id="tabKeys">
-      <textarea id="keysArea" rows="4" inputmode="none" placeholder="Кликните сюда и нажимайте клавиши (Alt+Shift, Ctrl+C и т.д. — реальные комбинации)"></textarea>
-      <div class="hint">Только ПК — press для одиночных клавиш, hotkey для комбинаций с Ctrl/Alt/Shift (отправляется атомарно, без гонки по сети)</div>
+      <textarea id="keysArea" rows="4" inputmode="none" placeholder="Кликните сюда и нажимайте клавиши (Alt+Shift, Ctrl+C и т.д.)"></textarea>
+      <div class="hint">Только ПК — press для одиночных клавиш, hotkey для комбинаций с Ctrl/Alt/Shift</div>
     </div>
     <div class="tab-panel" id="tabText">
       <div class="row">
@@ -1345,6 +343,35 @@ img.fs-img{
   </div>
 
   <div class="card">
+    <div class="card-title">🔧 Спецклавиши (F1–F12, пунктуация)</div>
+    <div class="hint">Эти кнопки шлют нажатие напрямую по тапу, в обход перехвата физической клавиатуры — работают всегда, даже если браузер резервирует клавишу за собой (актуально для F6/F7 на ПК).</div>
+    <div class="quick-grid" style="margin-top:10px;">
+      <button class="btn quick-btn" data-action="press" data-param="f1">F1</button>
+      <button class="btn quick-btn" data-action="press" data-param="f2">F2</button>
+      <button class="btn quick-btn" data-action="press" data-param="f3">F3</button>
+      <button class="btn quick-btn" data-action="press" data-param="f4">F4</button>
+      <button class="btn quick-btn" data-action="press" data-param="f5">F5</button>
+      <button class="btn quick-btn" data-action="press" data-param="f6">F6</button>
+      <button class="btn quick-btn" data-action="press" data-param="f7">F7</button>
+      <button class="btn quick-btn" data-action="press" data-param="f8">F8</button>
+      <button class="btn quick-btn" data-action="press" data-param="f9">F9</button>
+      <button class="btn quick-btn" data-action="press" data-param="f10">F10</button>
+      <button class="btn quick-btn" data-action="press" data-param="f11">F11</button>
+      <button class="btn quick-btn" data-action="press" data-param="f12">F12</button>
+    </div>
+    <div class="quick-grid" style="margin-top:10px;">
+      <button class="btn quick-btn" data-action="press" data-param=",">,</button>
+      <button class="btn quick-btn" data-action="press" data-param=".">.</button>
+      <button class="btn quick-btn" data-action="press" data-param="`">`</button>
+      <button class="btn quick-btn" data-action="press" data-param=";">;</button>
+      <button class="btn quick-btn" data-action="press" data-param="'">'</button>
+      <button class="btn quick-btn" data-action="press" data-param="[">[</button>
+      <button class="btn quick-btn" data-action="press" data-param="]">]</button>
+      <button class="btn quick-btn" data-action="press" data-param="\">\</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">🔥 Хоткеи</div>
     <div class="hotkey-grid">
       <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+c">Ctrl+C</button>
@@ -1356,7 +383,10 @@ img.fs-img{
       <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="alt+tab">Alt+Tab</button>
       <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="alt+shift">Alt+Shift (раскладка)</button>
     </div>
-    <div class="hint">⚠️ Ctrl+Alt+Delete технически невозможно отправить программно — Windows блокирует эту комбинацию на уровне ОС (Secure Attention Sequence) для любых утилит автоматизации.</div>
+    <div class="hint">
+      🖱 Средняя кнопка мыши (СКМ) всегда выполняет действия ПРАВОЙ кнопки. Действия средней кнопки отдельно не отправляются.<br>
+      ⚠️ Ctrl+Alt+Delete невозможно отправить программно — Windows блокирует это на уровне ОС.
+    </div>
   </div>
 
   <div class="card" id="streamCard" style="display:none;">
@@ -1371,19 +401,46 @@ img.fs-img{
     </div>
   </div>
 
+  <div class="card" id="audioCard" style="display:none;">
+    <div class="card-title">🔊 Аудио стрим</div>
+    <div class="stream-controls">
+      <button class="btn btn-primary" id="startAudioBtn">▶ Включить звук</button>
+      <button class="btn btn-danger" id="stopAudioBtn" style="display:none;">■ Выключить звук</button>
+      <button class="btn" id="muteAudioBtn" style="display:none;">🔊 Mute</button>
+    </div>
+    <div class="row" style="align-items:center;">
+      <label style="flex:0 0 auto;margin:0;">Громкость</label>
+      <input type="range" id="volumeSlider" min="0" max="100" value="80" style="flex:1;">
+    </div>
+    <div class="hint">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="audioAutoCheckbox" checked style="width:auto;">
+        Включать звук автоматически вместе с видеостримом
+      </label>
+    </div>
+    <div class="conn-actions" style="margin-top:10px;">
+      <div class="status-wrap">
+        <span class="status-dot offline" id="audioStatusDot"></span>
+        <span id="audioStatusText">offline</span>
+      </div>
+      <div class="hint" id="audioDebugEl" style="margin:0;">чанков: 0 | байт: 0</div>
+    </div>
+    <div class="hint">⚠️ Захват звука — loopback с системного динамика ПК. Отдельное WS-подключение /ws/audio, независимое от видео.</div>
+  </div>
+
   <div class="card">
     <div class="card-title">🧾 Логи <button class="btn btn-small" id="clearLogsBtn" style="float:right;">Очистить</button></div>
     <div class="logs-box" id="logsEl"></div>
   </div>
 </div>
 
-<!-- ============ FULLSCREEN OVERLAY ============ -->
 <div class="fs-overlay" id="fsOverlay">
   <div class="fs-panel" id="fsPanel">
     <button class="exit-btn" id="fsExitBtn">✕ Выход</button>
     <button class="fs-mode-btn active" data-mode="click">🖱 Клик</button>
     <button class="fs-mode-btn" data-mode="cursor">➤ Курсор</button>
     <button class="fs-mode-btn" data-mode="loupe">🔍 Лупа</button>
+    <button id="fsAudioMuteBtn">🔊</button>
   </div>
   <div class="fs-video-area" id="fsVideoArea">
     <div class="fs-badge" id="fsZoomBadge">🔍 ×1.0</div>
@@ -1397,7 +454,6 @@ img.fs-img{
 (function(){
 "use strict";
 
-/* ===================== УТИЛИТЫ ===================== */
 var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
                (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
@@ -1410,7 +466,7 @@ function dist(x1,y1,x2,y2){
 }
 function pad2(n){ return (n<10?"0":"")+n; }
 
-/* ===================== ЧАСТИЦЫ НА ФОНЕ ===================== */
+/* ===================== ЧАСТИЦЫ ===================== */
 var canvas = document.getElementById("bgCanvas");
 var ctx = canvas.getContext("2d");
 var particles = [];
@@ -1467,7 +523,7 @@ function animateParticles(){
 }
 animateParticles();
 
-/* ===================== ЭЛЕМЕНТЫ DOM ===================== */
+/* ===================== DOM ===================== */
 var hostInput = document.getElementById("hostInput");
 var tokenInput = document.getElementById("tokenInput");
 var toggleHostBtn = document.getElementById("toggleHostBtn");
@@ -1487,6 +543,17 @@ var stopStreamBtn = document.getElementById("stopStreamBtn");
 var fsBtn = document.getElementById("fsBtn");
 var streamImg = document.getElementById("streamImg");
 var streamPreviewContainer = document.getElementById("streamPreviewContainer");
+
+var audioCard = document.getElementById("audioCard");
+var startAudioBtn = document.getElementById("startAudioBtn");
+var stopAudioBtn = document.getElementById("stopAudioBtn");
+var muteAudioBtn = document.getElementById("muteAudioBtn");
+var volumeSlider = document.getElementById("volumeSlider");
+var audioAutoCheckbox = document.getElementById("audioAutoCheckbox");
+var audioStatusDot = document.getElementById("audioStatusDot");
+var audioStatusText = document.getElementById("audioStatusText");
+var audioDebugEl = document.getElementById("audioDebugEl");
+var fsAudioMuteBtn = document.getElementById("fsAudioMuteBtn");
 
 var logsEl = document.getElementById("logsEl");
 var clearLogsBtn = document.getElementById("clearLogsBtn");
@@ -1514,7 +581,6 @@ function log(msg, type){
 }
 clearLogsBtn.addEventListener("click", function(){ logsEl.innerHTML = ""; });
 
-/* ===================== ПОКАЗАТЬ/СКРЫТЬ ПОЛЯ ===================== */
 function bindToggle(inputEl, btnEl){
   btnEl.addEventListener("click", function(){
     if (inputEl.type === "password"){
@@ -1529,7 +595,12 @@ function bindToggle(inputEl, btnEl){
 bindToggle(hostInput, toggleHostBtn);
 bindToggle(tokenInput, toggleTokenBtn);
 
-/* ===================== КАРТА КЛАВИШ (codeToKey) ===================== */
+/* ===================== КАРТА КЛАВИШ =====================
+   ИСПРАВЛЕНО: Comma/Period теперь шлют буквальные символы "," и "."
+   вместо словесных "comma"/"period" — pydirectinput.KEYBOARD_MAPPING
+   (scan-code based) использует именно литеральные символы для клавиш
+   пунктуации, а не их словесные названия. Именно это было причиной
+   ошибки "Unsupported key" при нажатии , и . */
 var codeToKey = {
   "Enter": "enter",
   "NumpadEnter": "enter",
@@ -1560,8 +631,8 @@ var codeToKey = {
   "Backslash": "\\",
   "Semicolon": ";",
   "Quote": "'",
-  "Comma": "comma",
-  "Period": "period",
+  "Comma": ",",
+  "Period": ".",
   "Slash": "/",
   "Digit0": "0", "Digit1": "1", "Digit2": "2", "Digit3": "3", "Digit4": "4",
   "Digit5": "5", "Digit6": "6", "Digit7": "7", "Digit8": "8", "Digit9": "9",
@@ -1577,13 +648,6 @@ var codeToKey = {
   "AudioVolumeMute": "volumemute"
 };
 
-/* ===================== КОМБИНАЦИИ КЛАВИШ (hotkey) =====================
-   Раньше Alt+Shift отправлялись как две отдельные down-команды по сети —
-   это гонка (race condition): пока вторая команда доедет до сервера,
-   первая клавиша уже могла "отпуститься" по таймауту ОС.
-   Теперь комбинация собирается на клиенте и шлётся ОДНИМ атомарным
-   действием "hotkey", которое сервер выполняет через pyautogui.hotkey()
-   одним вызовом — без гонки по сети. */
 var modifierCodeMap = {
   "ShiftLeft":"shift","ShiftRight":"shift",
   "ControlLeft":"ctrl","ControlRight":"ctrl",
@@ -1598,7 +662,7 @@ function resetModifiers(){
 }
 window.addEventListener("blur", resetModifiers);
 document.addEventListener("visibilitychange", function(){ if (document.hidden) resetModifiers(); });
-window.addEventListener("beforeunload", resetModifiers);
+window.addEventListener("beforeunload", function(){ resetModifiers(); stopAudio(); });
 
 function handleComboKeyDown(e, hintFn, logFn){
   var modName = modifierCodeMap[e.code];
@@ -1658,7 +722,7 @@ function handleComboKeyUp(e){
   }
 }
 
-/* ===================== WEBSOCKET ===================== */
+/* ===================== WEBSOCKET (управление) ===================== */
 var ws = null;
 var streamActive = false;
 
@@ -1677,9 +741,15 @@ function getStreamUrl(){
   var token = tokenInput.value.trim();
   return "http://" + host + ":8000/stream?token=" + encodeURIComponent(token);
 }
+function getAudioWsUrl(){
+  var host = hostInput.value.trim() || "localhost";
+  var token = tokenInput.value.trim();
+  return "ws://" + host + ":8000/ws/audio?token=" + encodeURIComponent(token);
+}
 
 function sendRaw(action, parameter, x, y, button){
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (button === "middle") button = "right";
   var msg = { action: action };
   if (parameter !== undefined && parameter !== null) msg.parameter = parameter;
   if (typeof x === "number") msg.x = x;
@@ -1710,6 +780,7 @@ function connect(){
     log("Соединение установлено", "success");
     connectBtn.textContent = "⏻ Disconnect";
     streamCard.style.display = "block";
+    audioCard.style.display = "block";
   };
   ws.onclose = function(){
     setStatus("offline");
@@ -1719,7 +790,9 @@ function connect(){
     resetModifiers();
     if (fsActive){ exitFullscreenViaHistory(); }
     stopStream();
+    stopAudioFull();
     streamCard.style.display = "none";
+    audioCard.style.display = "none";
   };
   ws.onerror = function(){
     log("Ошибка WebSocket", "error");
@@ -1752,7 +825,7 @@ tabButtons.forEach(function(btn){
   });
 });
 
-/* ===================== СМАРТ РЕЖИМ ===================== */
+/* ===================== СМАРТ ===================== */
 function insertTextAtCursor(el, text){
   var start = el.selectionStart, end = el.selectionEnd;
   var val = el.value;
@@ -1805,7 +878,6 @@ smartArea.addEventListener("beforeinput", function(e){
   }
 });
 
-/* ===================== КЛАВИШИ (вкладка, только ПК) ===================== */
 keysArea.addEventListener("keydown", function(e){
   handleComboKeyDown(e, null, function(msg){
     keysArea.value += "[" + msg + "] ";
@@ -1815,7 +887,6 @@ keysArea.addEventListener("keydown", function(e){
 keysArea.addEventListener("keyup", handleComboKeyUp);
 keysArea.addEventListener("blur", resetModifiers);
 
-/* ===================== ТЕКСТ (единая строка) ===================== */
 sendTextBtn.addEventListener("click", function(){
   var val = textInput.value;
   if (!val) return;
@@ -1833,7 +904,6 @@ textInput.addEventListener("keydown", function(e){
   }
 });
 
-/* ===================== БЫСТРЫЕ КОМАНДЫ + ХОТКЕИ ===================== */
 document.querySelectorAll(".quick-btn").forEach(function(btn){
   btn.addEventListener("click", function(){
     var action = btn.dataset.action;
@@ -1849,7 +919,7 @@ document.querySelectorAll(".quick-btn").forEach(function(btn){
   });
 });
 
-/* ===================== СТРИМ ===================== */
+/* ===================== ВИДЕО СТРИМ ===================== */
 function startStream(){
   if (streamActive) return;
   streamImg.src = getStreamUrl();
@@ -1857,7 +927,7 @@ function startStream(){
   startStreamBtn.style.display = "none";
   stopStreamBtn.style.display = "inline-block";
   fsBtn.style.display = "inline-block";
-  log("Стрим запущен", "success");
+  log("Видеостример запущен", "success");
 }
 function stopStream(){
   streamImg.src = "";
@@ -1865,7 +935,7 @@ function stopStream(){
   startStreamBtn.style.display = "inline-block";
   stopStreamBtn.style.display = "none";
   fsBtn.style.display = "none";
-  log("Стрим остановлен", "warn");
+  log("Видеостример остановлен", "warn");
 }
 startStreamBtn.addEventListener("click", function(){
   if (!ws || ws.readyState !== WebSocket.OPEN){
@@ -1873,10 +943,184 @@ startStreamBtn.addEventListener("click", function(){
     return;
   }
   startStream();
+  if (audioAutoCheckbox.checked && !audioActive){
+    startAudioFull();
+  }
 });
 stopStreamBtn.addEventListener("click", function(){
   if (fsActive) exitFullscreenViaHistory();
   stopStream();
+  stopAudioFull();
+});
+
+/* ===================== АУДИО СТРИМ (Web Audio API) =====================
+   Формат данных сервера: сырой PCM, int16 little-endian, mono, 48000Hz,
+   чанк = 1024 сэмпла = 2048 байт, без заголовков (см. /ws/audio backend).
+   Проигрывание — техника непрерывного шедулинга AudioBufferSourceNode
+   "встык" по временной шкале AudioContext, с автоматической
+   ресинхронизацией при сетевых подвисаниях. */
+var audioWs = null;
+var audioCtx = null;
+var gainNode = null;
+var audioActive = false;
+var audioMuted = false;
+var audioVolume = 0.8;
+var nextStartTime = 0;
+var audioChunksReceived = 0;
+var audioBytesReceived = 0;
+var AUDIO_SAMPLE_RATE = 48000;
+var AUDIO_START_LATENCY = 0.15;
+
+function ensureAudioContext(){
+  if (audioCtx) return audioCtx;
+  var Ctor = window.AudioContext || window.webkitAudioContext;
+  try{
+    audioCtx = new Ctor({ sampleRate: AUDIO_SAMPLE_RATE });
+  } catch(e){
+    audioCtx = new Ctor();
+  }
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = audioMuted ? 0 : audioVolume;
+  gainNode.connect(audioCtx.destination);
+  return audioCtx;
+}
+
+function updateAudioDebug(){
+  audioDebugEl.textContent = "чанков: " + audioChunksReceived + " | байт: " + audioBytesReceived;
+}
+
+function playAudioChunk(arrayBuffer){
+  if (!audioCtx || !gainNode) return;
+  var int16 = new Int16Array(arrayBuffer);
+  var frameCount = int16.length;
+  if (frameCount === 0) return;
+  var audioBuffer = audioCtx.createBuffer(1, frameCount, AUDIO_SAMPLE_RATE);
+  var channelData = audioBuffer.getChannelData(0);
+  for (var i=0;i<frameCount;i++){
+    channelData[i] = int16[i] / 32768;
+  }
+  var source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(gainNode);
+
+  var now = audioCtx.currentTime;
+  if (nextStartTime < now + 0.01){
+    nextStartTime = now + AUDIO_START_LATENCY;
+  }
+  source.start(nextStartTime);
+  nextStartTime += audioBuffer.duration;
+
+  audioChunksReceived++;
+  audioBytesReceived += arrayBuffer.byteLength;
+  updateAudioDebug();
+}
+
+function setAudioStatus(state){
+  audioStatusDot.className = "status-dot " + state;
+  audioStatusText.textContent = state;
+}
+
+function startAudio(){
+  if (audioActive) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN){
+    log("Аудио: сначала подключитесь", "error");
+    return;
+  }
+  ensureAudioContext();
+  if (audioCtx.state === "suspended"){
+    audioCtx.resume().catch(function(){});
+  }
+  nextStartTime = audioCtx.currentTime + AUDIO_START_LATENCY;
+  audioChunksReceived = 0;
+  audioBytesReceived = 0;
+  updateAudioDebug();
+
+  try{
+    audioWs = new WebSocket(getAudioWsUrl());
+  } catch(e){
+    log("Аудио: ошибка создания WebSocket: " + e.message, "error");
+    return;
+  }
+  audioWs.binaryType = "arraybuffer";
+  audioActive = true;
+  setAudioStatus("connecting");
+
+  audioWs.onopen = function(){
+    setAudioStatus("connected");
+    log("Аудио-поток подключен", "success");
+  };
+  audioWs.onmessage = function(evt){
+    if (evt.data instanceof ArrayBuffer){
+      playAudioChunk(evt.data);
+    }
+  };
+  audioWs.onclose = function(){
+    setAudioStatus("offline");
+    audioActive = false;
+    audioWs = null;
+    log("Аудио-поток отключен", "warn");
+  };
+  audioWs.onerror = function(){
+    log("Ошибка аудио-WebSocket", "error");
+  };
+}
+
+function stopAudio(){
+  if (audioWs){
+    try{ audioWs.close(); }catch(e){}
+    audioWs = null;
+  }
+  audioActive = false;
+  setAudioStatus("offline");
+  if (audioCtx){
+    try{ audioCtx.close(); }catch(e){}
+    audioCtx = null;
+    gainNode = null;
+  }
+  nextStartTime = 0;
+}
+
+function startAudioFull(){
+  startAudio();
+  startAudioBtn.style.display = "none";
+  stopAudioBtn.style.display = "inline-block";
+  muteAudioBtn.style.display = "inline-block";
+}
+function stopAudioFull(){
+  stopAudio();
+  startAudioBtn.style.display = "inline-block";
+  stopAudioBtn.style.display = "none";
+  muteAudioBtn.style.display = "none";
+}
+
+function setAudioVolume(v){
+  audioVolume = clampNum(v, 0, 1);
+  if (gainNode && !audioMuted){
+    gainNode.gain.value = audioVolume;
+  }
+}
+function toggleAudioMute(){
+  audioMuted = !audioMuted;
+  if (gainNode){
+    gainNode.gain.value = audioMuted ? 0 : audioVolume;
+  }
+  muteAudioBtn.textContent = audioMuted ? "🔇 Включить звук" : "🔊 Mute";
+  fsAudioMuteBtn.textContent = audioMuted ? "🔇" : "🔊";
+}
+
+startAudioBtn.addEventListener("click", startAudioFull);
+stopAudioBtn.addEventListener("click", stopAudioFull);
+muteAudioBtn.addEventListener("click", toggleAudioMute);
+volumeSlider.addEventListener("input", function(){
+  setAudioVolume(volumeSlider.value / 100);
+});
+fsAudioMuteBtn.addEventListener("click", function(e){
+  e.stopPropagation();
+  if (!audioActive){
+    log("Звук не подключен", "warn");
+    return;
+  }
+  toggleAudioMute();
 });
 
 /* ===================== ПОЛНОЭКРАННЫЙ РЕЖИМ ===================== */
@@ -2036,7 +1280,6 @@ window.addEventListener("resize", function(){
   applyTransform();
 });
 
-/* ---------- клавиатура ПК в полноэкранном режиме (с поддержкой hotkey-комбинаций) ---------- */
 window.addEventListener("keydown", function(e){
   if (!fsActive) return;
   if (e.key === "Escape"){
@@ -2067,7 +1310,8 @@ function showScrollHint(val){
   showScrollHint._t = setTimeout(function(){ fsScrollHint.style.opacity = "0"; }, 500);
 }
 
-/* ---------- скролл (батч 80мс) ---------- */
+var WHEEL_SCROLL_DIVISOR = 12;
+var TOUCH_SCROLL_DIVISOR = 2;
 var scrollAccum = 0, scrollTimer = null;
 function queueScroll(delta){
   scrollAccum += delta;
@@ -2083,12 +1327,6 @@ function queueScroll(delta){
   }
 }
 
-/* ---------- скрытое поле ввода (мобильная клавиатура) ----------
-   Расположено ВНУТРИ видимой области (top:0,left:0,1x1px,opacity:0),
-   а НЕ за пределами экрана (top:-200px) — это устраняет баг iOS Safari,
-   который насильно скроллит страницу, пытаясь "показать" элемент вне вьюпорта,
-   и который ломал layout при повороте экрана. font-size:16px предотвращает
-   авто-зум iOS при фокусе поля. */
 fsHiddenInput.addEventListener("beforeinput", function(e){
   if (e.inputType === "deleteContentBackward"){
     e.preventDefault();
@@ -2109,14 +1347,16 @@ fsHiddenInput.addEventListener("input", function(){
   fsHiddenInput.value = "";
 });
 
-/* ===================== POINTER EVENTS (мышь + тач + перо — единый код) =====================
-   Используем Pointer Events вместо раздельных touch/mouse обработчиков:
-   - e.pointerType === 'mouse' — реальная (в т.ч. Bluetooth) мышь: e.button
-     даёт ТОЧНОЕ значение (0=left,1=middle,2=right) без каких-либо задержек/эвристик.
-   - e.pointerType === 'touch' — палец: нет физической правой кнопки, поэтому
-     долгое нажатие (550мс) без движения эмулирует правый клик.
-   setPointerCapture гарантирует получение move/up даже если палец/курсор
-   уйдёт за границы видео-зоны во время драга. */
+/* ===================== КНОПКИ МЫШИ ===================== */
+function resolveMouseButton(e){
+  if (!e || e.pointerType === "touch" || e.pointerType === "pen") return "left";
+  if (e.button === 1 || e.button === 2) return "right";
+  if (typeof e.buttons === "number"){
+    if (e.buttons & 4) return "right";
+    if (e.buttons & 2) return "right";
+  }
+  return "left";
+}
 
 var gesture = {
   active:false, pointerId:null, isTouch:false, button:"left",
@@ -2134,7 +1374,7 @@ function gestureStart(pointerId, clientX, clientY, button, isTouch){
   gesture.active = true;
   gesture.pointerId = pointerId;
   gesture.isTouch = isTouch;
-  gesture.button = button;
+  gesture.button = (button === "middle") ? "right" : (button || "left");
   gesture.startX = clientX; gesture.startY = clientY;
   gesture.lastX = clientX; gesture.lastY = clientY;
   gesture.startTime = Date.now();
@@ -2215,8 +1455,9 @@ function handleLoupeTap(x, y, button){
     return;
   }
   tapTrack.lastTapTime = now; tapTrack.lastTapPos = { x:x, y:y };
+  var mapped = (button === "middle") ? "right" : (button || "left");
   var p = normalizedFromLoupePoint(x, y);
-  sendRaw("click", null, p.x, p.y, button || "left");
+  sendRaw("click", null, p.x, p.y, mapped);
 }
 function doubleTapZoom(x, y){
   var rect = fsVideoArea.getBoundingClientRect();
@@ -2251,8 +1492,7 @@ fsVideoArea.addEventListener("pointerdown", function(e){
     pinch.startZoom = fsState.zoom;
     pinch.lastMidY = (a.y+b.y)/2;
   } else if (!pinch.active && touchIds.length <= 1){
-    var btn = "left";
-    if (e.pointerType === "mouse") btn = (e.button === 2) ? "right" : (e.button === 1 ? "middle" : "left");
+    var btn = resolveMouseButton(e);
     gestureStart(e.pointerId, e.clientX, e.clientY, btn, e.pointerType === "touch");
   }
 }, { passive:false });
@@ -2296,7 +1536,7 @@ fsVideoArea.addEventListener("pointermove", function(e){
     } else {
       var mid2y = (a.y+b.y)/2;
       var deltaY = pinch.lastMidY - mid2y;
-      queueScroll(deltaY/5);
+      queueScroll(deltaY / TOUCH_SCROLL_DIVISOR);
       pinch.lastMidY = mid2y;
     }
     return;
@@ -2338,6 +1578,12 @@ function pointerFinish(e){
 fsVideoArea.addEventListener("pointerup", pointerFinish, { passive:false });
 fsVideoArea.addEventListener("pointercancel", pointerFinish, { passive:false });
 
+fsVideoArea.addEventListener("auxclick", function(e){
+  if (!fsActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
 fsVideoArea.addEventListener("contextmenu", function(e){
   if (fsActive) e.preventDefault();
 });
@@ -2360,7 +1606,7 @@ fsVideoArea.addEventListener("wheel", function(e){
     applyTransform();
     updateZoomBadge();
   } else {
-    queueScroll(e.deltaY / 50);
+    queueScroll(e.deltaY / WHEEL_SCROLL_DIVISOR);
   }
 }, { passive:false });
 
