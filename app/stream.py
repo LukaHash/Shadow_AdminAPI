@@ -1,4 +1,6 @@
 import time
+from time import sleep
+
 import cv2
 import dxcam
 import numpy as np
@@ -61,5 +63,10 @@ def generate_frames():
         # Обязательно останавливаем поток захвата видеокарты при выходе
         if camera is not None:
             camera.stop()
+            sleep(0.3)
             running = False
+            try:
+                del camera
+            except:
+                pass
             camera = None

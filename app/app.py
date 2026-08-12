@@ -35,7 +35,7 @@ async def auth_http_header(
 @app.post("/execute")
 async def execute_command(user_req: CommandRequest, token: str = Depends(get_user_auth_token)):
     try:
-        return allowcommand(user_req.action,user_req)
+        return allowcommand(user_req)
     except Exception as e:
         raise HTTPException(status_code=400,detail=str(e))
 
@@ -53,8 +53,9 @@ async def ws(websocket: WebSocket, token: str):
     while True:
         try:
             data =  await websocket.receive_json()
+            cmd = CommandRequest(**data) # В класс CommandRequest закидываем всё что нам пришо в data
             try:
-                allowcommand(data["action"],data["parameter"])
+                allowcommand(cmd)
                 res = await websocket.send_json({"status": "success", "message": "completed"})
             except Exception as e:
                 await websocket.send_json({f"status": "error", "message": str(e)})
