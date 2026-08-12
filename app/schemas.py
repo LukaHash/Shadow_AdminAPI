@@ -6,7 +6,7 @@ class CommandRequest(BaseModel):
     parameter: str|None|float = None
     x: float |None= None
     y: float | None = None
-
+    button: str | None = "left"
 
 
 

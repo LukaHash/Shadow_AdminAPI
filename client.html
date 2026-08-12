@@ -1009,6 +1009,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#06060d">
 <title>Shadow Admin</title>
 <style>
 :root{
@@ -1159,6 +1163,12 @@ textarea{
 }
 .quick-btn{padding:10px 6px;font-size:13px;}
 
+.hotkey-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+}
+.hotkey-btn{padding:10px 4px;font-size:12px;border-color:var(--magenta);color:var(--magenta);}
+.hotkey-btn:hover{background:rgba(208,0,255,0.15);box-shadow:0 0 12px rgba(208,0,255,0.5);}
+
 .stream-controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .stream-preview-wrap{
   background:#000;border-radius:10px;overflow:hidden;
@@ -1176,7 +1186,7 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
 .log-error{color:var(--red);}
 .log-warn{color:var(--amber);}
 
-/* ============= FULLSCREEN OVERLAY (панель НЕ перекрывает видео) ============= */
+/* ============= FULLSCREEN OVERLAY (панель НЕ перекрывает видео, компактная, без переноса строк) ============= */
 .fs-overlay{
   position:fixed;inset:0;background:#000;z-index:10000;
   display:none;
@@ -1189,7 +1199,10 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
 
 .fs-panel{
   flex:0 0 auto;
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  display:flex;align-items:center;gap:8px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
   padding:8px 10px;
   padding-top:calc(8px + env(safe-area-inset-top));
   padding-left:calc(10px + env(safe-area-inset-left));
@@ -1199,6 +1212,8 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
   position:relative;z-index:5;
 }
 .fs-panel button{
+  flex:0 0 auto;
+  white-space:nowrap;
   background:rgba(255,255,255,0.04);border:1px solid var(--cyan);color:var(--cyan);
   padding:7px 12px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer;
   touch-action:manipulation;
@@ -1209,6 +1224,7 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
 .fs-video-area{
   position:relative;flex:1 1 auto;min-height:0;overflow:hidden;background:#000;
   -webkit-user-select:none;user-select:none;
+  touch-action:none;
 }
 img.fs-img{
   position:absolute;top:0;left:0;width:100%;height:100%;
@@ -1216,6 +1232,7 @@ img.fs-img{
   transform-origin:0 0;
   touch-action:none;
   -webkit-user-drag:none;user-drag:none;
+  pointer-events:none;
 }
 .fs-badge{
   position:absolute;top:10px;left:50%;transform:translateX(-50%);
@@ -1244,6 +1261,7 @@ img.fs-img{
   .conn-row{flex-direction:column;}
   .conn-actions{flex-direction:column;align-items:flex-start;}
   .quick-grid{grid-template-columns:repeat(3,1fr);}
+  .hotkey-grid{grid-template-columns:repeat(2,1fr);}
   .row{flex-direction:column;}
   .btn{width:100%;}
   .stream-controls{flex-direction:column;}
@@ -1295,8 +1313,8 @@ img.fs-img{
       <div class="hint">Каждый символ / Enter / Backspace / Delete отправляется мгновенно. Работает на ПК и телефоне.</div>
     </div>
     <div class="tab-panel" id="tabKeys">
-      <textarea id="keysArea" rows="4" inputmode="none" placeholder="Кликните сюда и нажимайте клавиши (в т.ч. Alt/Shift/Ctrl для комбинаций)"></textarea>
-      <div class="hint">Только ПК — перехват физических клавиш (press) + удержание модификаторов (down/up) для комбинаций типа Alt+Shift</div>
+      <textarea id="keysArea" rows="4" inputmode="none" placeholder="Кликните сюда и нажимайте клавиши (Alt+Shift, Ctrl+C и т.д. — реальные комбинации)"></textarea>
+      <div class="hint">Только ПК — press для одиночных клавиш, hotkey для комбинаций с Ctrl/Alt/Shift (отправляется атомарно, без гонки по сети)</div>
     </div>
     <div class="tab-panel" id="tabText">
       <div class="row">
@@ -1324,6 +1342,21 @@ img.fs-img{
       <button class="btn quick-btn" data-action="press" data-param="volumemute">Mute</button>
       <button class="btn quick-btn" data-action="press" data-param="printscreen">PrtSc</button>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔥 Хоткеи</div>
+    <div class="hotkey-grid">
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+c">Ctrl+C</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+v">Ctrl+V</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+x">Ctrl+X</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+z">Ctrl+Z</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+a">Ctrl+A</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="ctrl+s">Ctrl+S</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="alt+tab">Alt+Tab</button>
+      <button class="btn quick-btn hotkey-btn" data-action="hotkey" data-param="alt+shift">Alt+Shift (раскладка)</button>
+    </div>
+    <div class="hint">⚠️ Ctrl+Alt+Delete технически невозможно отправить программно — Windows блокирует эту комбинацию на уровне ОС (Secure Attention Sequence) для любых утилит автоматизации.</div>
   </div>
 
   <div class="card" id="streamCard" style="display:none;">
@@ -1496,25 +1529,6 @@ function bindToggle(inputEl, btnEl){
 bindToggle(hostInput, toggleHostBtn);
 bindToggle(tokenInput, toggleTokenBtn);
 
-/* ===================== МОДИФИКАТОРЫ (Shift/Ctrl/Alt) — ДЛЯ КОМБИНАЦИЙ ===================== */
-var modifierCodeMap = {
-  "ShiftLeft":"shift","ShiftRight":"shift",
-  "ControlLeft":"ctrl","ControlRight":"ctrl",
-  "AltLeft":"alt","AltRight":"alt"
-  /* Meta(Win) сознательно не форвардим: не входит в список разрешённых клавиш backend
-     и обычно перехватывается ОС на уровне браузера, JS всё равно её не получит */
-};
-var heldModifiers = {};
-
-function releaseAllModifiers(){
-  for (var m in heldModifiers){
-    if (heldModifiers[m]){
-      sendRaw("up", m);
-    }
-  }
-  heldModifiers = {};
-}
-
 /* ===================== КАРТА КЛАВИШ (codeToKey) ===================== */
 var codeToKey = {
   "Enter": "enter",
@@ -1563,17 +1577,48 @@ var codeToKey = {
   "AudioVolumeMute": "volumemute"
 };
 
-/* Универсальный обработчик keydown/keyup для комбинаций.
-   Используется и во вкладке "Клавиши", и в полноэкранном режиме. */
+/* ===================== КОМБИНАЦИИ КЛАВИШ (hotkey) =====================
+   Раньше Alt+Shift отправлялись как две отдельные down-команды по сети —
+   это гонка (race condition): пока вторая команда доедет до сервера,
+   первая клавиша уже могла "отпуститься" по таймауту ОС.
+   Теперь комбинация собирается на клиенте и шлётся ОДНИМ атомарным
+   действием "hotkey", которое сервер выполняет через pyautogui.hotkey()
+   одним вызовом — без гонки по сети. */
+var modifierCodeMap = {
+  "ShiftLeft":"shift","ShiftRight":"shift",
+  "ControlLeft":"ctrl","ControlRight":"ctrl",
+  "AltLeft":"alt","AltRight":"alt"
+};
+var heldMods = {};
+var modOrder = [];
+var modComboUsed = {};
+
+function resetModifiers(){
+  heldMods = {}; modOrder = []; modComboUsed = {};
+}
+window.addEventListener("blur", resetModifiers);
+document.addEventListener("visibilitychange", function(){ if (document.hidden) resetModifiers(); });
+window.addEventListener("beforeunload", resetModifiers);
+
 function handleComboKeyDown(e, hintFn, logFn){
   var modName = modifierCodeMap[e.code];
   if (modName){
     e.preventDefault();
-    if (!heldModifiers[modName]){
-      heldModifiers[modName] = true;
-      sendRaw("down", modName);
-      if (hintFn) hintFn(modName.toUpperCase());
-      if (logFn) logFn("DOWN " + modName);
+    if (e.repeat) return;
+    if (!heldMods[modName]){
+      heldMods[modName] = true;
+      modOrder.push(modName);
+      modComboUsed[modName] = false;
+    }
+    if (modOrder.length >= 2){
+      var combo = modOrder.join("+");
+      if (modComboUsed.__lastCombo !== combo){
+        sendRaw("hotkey", combo);
+        if (hintFn) hintFn(combo.toUpperCase());
+        if (logFn) logFn("hotkey " + combo);
+        modOrder.forEach(function(m){ modComboUsed[m] = true; });
+        modComboUsed.__lastCombo = combo;
+      }
     }
     return;
   }
@@ -1582,8 +1627,16 @@ function handleComboKeyDown(e, hintFn, logFn){
     var lk = e.key.toLowerCase();
     if (/^[a-z0-9]$/.test(lk)) key = lk;
   }
-  if (key){
-    e.preventDefault();
+  if (!key) return;
+  e.preventDefault();
+  if (modOrder.length > 0){
+    if (e.repeat) return;
+    var combo2 = modOrder.concat([key]).join("+");
+    sendRaw("hotkey", combo2);
+    if (hintFn) hintFn(combo2.toUpperCase());
+    if (logFn) logFn("hotkey " + combo2);
+    modOrder.forEach(function(m){ modComboUsed[m] = true; });
+  } else {
     sendRaw("press", key);
     if (hintFn) hintFn(key);
     if (logFn) logFn("press " + key);
@@ -1591,19 +1644,19 @@ function handleComboKeyDown(e, hintFn, logFn){
 }
 function handleComboKeyUp(e){
   var modName = modifierCodeMap[e.code];
-  if (modName && heldModifiers[modName]){
-    e.preventDefault();
-    heldModifiers[modName] = false;
-    sendRaw("up", modName);
+  if (!modName) return;
+  e.preventDefault();
+  if (heldMods[modName]){
+    if (!modComboUsed[modName]){
+      sendRaw("press", modName);
+    }
+    heldMods[modName] = false;
+    var idx = modOrder.indexOf(modName);
+    if (idx !== -1) modOrder.splice(idx, 1);
+    delete modComboUsed[modName];
+    if (modOrder.length < 2) modComboUsed.__lastCombo = null;
   }
 }
-
-/* Защита от "залипших" модификаторов — снимаем их при любой потере контекста */
-window.addEventListener("blur", releaseAllModifiers);
-document.addEventListener("visibilitychange", function(){
-  if (document.hidden) releaseAllModifiers();
-});
-window.addEventListener("beforeunload", releaseAllModifiers);
 
 /* ===================== WEBSOCKET ===================== */
 var ws = null;
@@ -1625,12 +1678,13 @@ function getStreamUrl(){
   return "http://" + host + ":8000/stream?token=" + encodeURIComponent(token);
 }
 
-function sendRaw(action, parameter, x, y){
+function sendRaw(action, parameter, x, y, button){
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
   var msg = { action: action };
   if (parameter !== undefined && parameter !== null) msg.parameter = parameter;
   if (typeof x === "number") msg.x = x;
   if (typeof y === "number") msg.y = y;
+  if (button !== undefined && button !== null) msg.button = button;
   ws.send(JSON.stringify(msg));
   return true;
 }
@@ -1662,7 +1716,7 @@ function connect(){
     log("Соединение закрыто", "warn");
     connectBtn.textContent = "⚡ Connect";
     ws = null;
-    releaseAllModifiers();
+    resetModifiers();
     if (fsActive){ exitFullscreenViaHistory(); }
     stopStream();
     streamCard.style.display = "none";
@@ -1690,7 +1744,7 @@ var tabButtons = document.querySelectorAll(".tab-btn");
 var tabPanels = document.querySelectorAll(".tab-panel");
 tabButtons.forEach(function(btn){
   btn.addEventListener("click", function(){
-    releaseAllModifiers();
+    resetModifiers();
     tabButtons.forEach(function(b){ b.classList.remove("active"); });
     tabPanels.forEach(function(p){ p.classList.remove("active"); });
     btn.classList.add("active");
@@ -1759,7 +1813,7 @@ keysArea.addEventListener("keydown", function(e){
   });
 });
 keysArea.addEventListener("keyup", handleComboKeyUp);
-keysArea.addEventListener("blur", releaseAllModifiers);
+keysArea.addEventListener("blur", resetModifiers);
 
 /* ===================== ТЕКСТ (единая строка) ===================== */
 sendTextBtn.addEventListener("click", function(){
@@ -1779,7 +1833,7 @@ textInput.addEventListener("keydown", function(e){
   }
 });
 
-/* ===================== БЫСТРЫЕ КОМАНДЫ ===================== */
+/* ===================== БЫСТРЫЕ КОМАНДЫ + ХОТКЕИ ===================== */
 document.querySelectorAll(".quick-btn").forEach(function(btn){
   btn.addEventListener("click", function(){
     var action = btn.dataset.action;
@@ -1829,6 +1883,36 @@ stopStreamBtn.addEventListener("click", function(){
 var fsActive = false;
 var fsState = { mode: "click", zoom: 1, panX: 0, panY: 0 };
 var lastMoveSend = 0;
+
+function requestNativeFullscreen(el){
+  var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (fn){
+    try{
+      var res = fn.call(el);
+      if (res && res.catch) res.catch(function(){});
+    } catch(e){}
+  }
+}
+function exitNativeFullscreen(){
+  var isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (isFs){
+    var fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (fn){
+      try{
+        var r = fn.call(document);
+        if (r && r.catch) r.catch(function(){});
+      } catch(e){}
+    }
+  }
+}
+["fullscreenchange","webkitfullscreenchange","mozfullscreenchange","MSFullscreenChange"].forEach(function(evtName){
+  document.addEventListener(evtName, function(){
+    var isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    if (fsActive && !isFs){
+      history.back();
+    }
+  });
+});
 
 function setMode(mode){
   fsState.mode = mode;
@@ -1887,6 +1971,9 @@ function normalizedFromLoupePoint(clientX, clientY){
   var ny = (realY - cr.top) / cr.height;
   return { x: clampNum(nx,0,1), y: clampNum(ny,0,1) };
 }
+function coordsForMode(clientX, clientY){
+  return fsState.mode === "loupe" ? normalizedFromLoupePoint(clientX, clientY) : pointToNormalized(clientX, clientY);
+}
 
 function enterFullscreen(){
   if (!streamActive){
@@ -1903,11 +1990,15 @@ function enterFullscreen(){
   document.body.style.overflow = "hidden";
   history.pushState({ shadowFs: true }, "");
   setMode("click");
+  requestNativeFullscreen(fsOverlay);
 }
 function exitFullscreen(){
   if (!fsActive) return;
   fsActive = false;
-  releaseAllModifiers();
+  resetModifiers();
+  gesture.active = false;
+  pinch.active = false;
+  clearTimeout(gesture.longPressTimer);
   streamImg.classList.remove("fs-img");
   streamImg.style.transform = "";
   streamImg.classList.add("preview-img");
@@ -1915,6 +2006,7 @@ function exitFullscreen(){
   fsOverlay.classList.remove("active");
   document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
+  exitNativeFullscreen();
 }
 function exitFullscreenViaHistory(){
   if (fsActive) history.back();
@@ -1930,7 +2022,6 @@ fsExitBtn.addEventListener("click", function(e){
 
 fsBtn.addEventListener("click", enterFullscreen);
 
-/* Пересчёт зума/пана при повороте экрана — исключает "непредсказуемое" поведение */
 window.addEventListener("orientationchange", function(){
   if (!fsActive) return;
   setTimeout(function(){
@@ -1945,7 +2036,7 @@ window.addEventListener("resize", function(){
   applyTransform();
 });
 
-/* ---------- клавиатура ПК в полноэкранном режиме (с поддержкой комбинаций) ---------- */
+/* ---------- клавиатура ПК в полноэкранном режиме (с поддержкой hotkey-комбинаций) ---------- */
 window.addEventListener("keydown", function(e){
   if (!fsActive) return;
   if (e.key === "Escape"){
@@ -1993,10 +2084,11 @@ function queueScroll(delta){
 }
 
 /* ---------- скрытое поле ввода (мобильная клавиатура) ----------
-   Расположено В ПРЕДЕЛАХ видимой области (top:0,left:0,1x1px, opacity:0),
-   а НЕ за пределами экрана — это устраняет баг iOS Safari, который
-   насильно скроллит страницу, пытаясь "показать" элемент вне вьюпорта.
-   font-size:16px предотвращает авто-зум iOS при фокусе. */
+   Расположено ВНУТРИ видимой области (top:0,left:0,1x1px,opacity:0),
+   а НЕ за пределами экрана (top:-200px) — это устраняет баг iOS Safari,
+   который насильно скроллит страницу, пытаясь "показать" элемент вне вьюпорта,
+   и который ломал layout при повороте экрана. font-size:16px предотвращает
+   авто-зум iOS при фокусе поля. */
 fsHiddenInput.addEventListener("beforeinput", function(e){
   if (e.inputType === "deleteContentBackward"){
     e.preventDefault();
@@ -2017,50 +2109,115 @@ fsHiddenInput.addEventListener("input", function(){
   fsHiddenInput.value = "";
 });
 
-/* ---------- тач-геометрия ---------- */
-function touchDist(touches){
-  var dx = touches[0].clientX - touches[1].clientX;
-  var dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx*dx+dy*dy);
-}
-function touchMid(touches){
-  return {
-    x: (touches[0].clientX + touches[1].clientX) / 2,
-    y: (touches[0].clientY + touches[1].clientY) / 2
-  };
-}
+/* ===================== POINTER EVENTS (мышь + тач + перо — единый код) =====================
+   Используем Pointer Events вместо раздельных touch/mouse обработчиков:
+   - e.pointerType === 'mouse' — реальная (в т.ч. Bluetooth) мышь: e.button
+     даёт ТОЧНОЕ значение (0=left,1=middle,2=right) без каких-либо задержек/эвристик.
+   - e.pointerType === 'touch' — палец: нет физической правой кнопки, поэтому
+     долгое нажатие (550мс) без движения эмулирует правый клик.
+   setPointerCapture гарантирует получение move/up даже если палец/курсор
+   уйдёт за границы видео-зоны во время драга. */
 
-/* ---------- состояние жестов ---------- */
-var ts = {
-  singleStart: null,
-  singleMoved: false,
-  panLast: null,
-  pinchStartDist: 0,
-  pinchStartZoom: 1,
-  scrollTouchLastY: null,
-  lastTapTime: 0,
-  lastTapPos: null
+var gesture = {
+  active:false, pointerId:null, isTouch:false, button:"left",
+  startX:0,startY:0,lastX:0,lastY:0,startTime:0,
+  moved:false, downSent:false,
+  longPressTimer:null, longPressFired:false
 };
+var pinch = { active:false, idA:null, idB:null, startDist:0, startZoom:1, lastMidY:0 };
+var activePointers = {};
+var tapTrack = { lastTapTime:0, lastTapPos:null };
+var DRAG_PX = 6;
+var LONG_PRESS_MS = 550;
 
-function handleTap(x, y){
-  if (fsState.mode === "loupe"){
-    var now = Date.now();
-    if (ts.lastTapPos && (now - ts.lastTapTime) < 300 && dist(ts.lastTapPos.x, ts.lastTapPos.y, x, y) < 40){
-      doubleTapZoom(x, y);
-      ts.lastTapTime = 0;
-      ts.lastTapPos = null;
-      return;
-    }
-    ts.lastTapTime = now;
-    ts.lastTapPos = { x:x, y:y };
-    var p = normalizedFromLoupePoint(x, y);
-    sendRaw("click", null, p.x, p.y);
-  } else {
-    var p2 = pointToNormalized(x, y);
-    sendRaw("click", null, p2.x, p2.y);
+function gestureStart(pointerId, clientX, clientY, button, isTouch){
+  gesture.active = true;
+  gesture.pointerId = pointerId;
+  gesture.isTouch = isTouch;
+  gesture.button = button;
+  gesture.startX = clientX; gesture.startY = clientY;
+  gesture.lastX = clientX; gesture.lastY = clientY;
+  gesture.startTime = Date.now();
+  gesture.moved = false;
+  gesture.downSent = false;
+  gesture.longPressFired = false;
+  clearTimeout(gesture.longPressTimer);
+  if (isTouch){
+    gesture.longPressTimer = setTimeout(function(){
+      if (gesture.active && !gesture.moved && !gesture.downSent && !pinch.active){
+        var p = coordsForMode(clientX, clientY);
+        sendRaw("click", null, p.x, p.y, "right");
+        gesture.longPressFired = true;
+        showKeyHint("🖱 ПКМ");
+      }
+    }, LONG_PRESS_MS);
   }
 }
-
+function gestureCancel(){
+  gesture.active = false;
+  clearTimeout(gesture.longPressTimer);
+}
+function gestureMove(clientX, clientY){
+  if (!gesture.active || gesture.longPressFired) return;
+  var dx = clientX - gesture.startX, dy = clientY - gesture.startY;
+  if (!gesture.moved && Math.sqrt(dx*dx+dy*dy) > DRAG_PX){
+    gesture.moved = true;
+    clearTimeout(gesture.longPressTimer);
+  }
+  if (fsState.mode === "cursor"){
+    var now = Date.now();
+    if (now - lastMoveSend > 16){
+      var p = pointToNormalized(clientX, clientY);
+      sendRaw("move", null, p.x, p.y);
+      lastMoveSend = now;
+    }
+    if (gesture.moved && !gesture.downSent){
+      var pd = pointToNormalized(clientX, clientY);
+      sendRaw("mouse_down", null, pd.x, pd.y, gesture.button);
+      gesture.downSent = true;
+    }
+  } else if (fsState.mode === "loupe" && fsState.zoom > 1 && gesture.moved){
+    var pdx = clientX - gesture.lastX, pdy = clientY - gesture.lastY;
+    fsState.panX -= pdx / fsState.zoom;
+    fsState.panY -= pdy / fsState.zoom;
+    clampPan();
+    applyTransform();
+  }
+  gesture.lastX = clientX; gesture.lastY = clientY;
+}
+function gestureEnd(clientX, clientY){
+  clearTimeout(gesture.longPressTimer);
+  if (!gesture.active) return;
+  gesture.active = false;
+  if (gesture.longPressFired) return;
+  if (fsState.mode === "cursor"){
+    if (gesture.downSent){
+      var p = pointToNormalized(clientX, clientY);
+      sendRaw("mouse_up", null, p.x, p.y, gesture.button);
+    } else if (!gesture.moved){
+      var p2 = pointToNormalized(clientX, clientY);
+      sendRaw("click", null, p2.x, p2.y, gesture.button);
+    }
+  } else if (fsState.mode === "loupe"){
+    if (!gesture.moved) handleLoupeTap(clientX, clientY, gesture.button);
+  } else {
+    if (!gesture.moved){
+      var p3 = pointToNormalized(clientX, clientY);
+      sendRaw("click", null, p3.x, p3.y, gesture.button);
+    }
+  }
+}
+function handleLoupeTap(x, y, button){
+  var now = Date.now();
+  if (tapTrack.lastTapPos && (now - tapTrack.lastTapTime) < 300 && dist(tapTrack.lastTapPos.x, tapTrack.lastTapPos.y, x, y) < 40){
+    doubleTapZoom(x, y);
+    tapTrack.lastTapTime = 0; tapTrack.lastTapPos = null;
+    return;
+  }
+  tapTrack.lastTapTime = now; tapTrack.lastTapPos = { x:x, y:y };
+  var p = normalizedFromLoupePoint(x, y);
+  sendRaw("click", null, p.x, p.y, button || "left");
+}
 function doubleTapZoom(x, y){
   var rect = fsVideoArea.getBoundingClientRect();
   var mx = x - rect.left, my = y - rect.top;
@@ -2076,64 +2233,57 @@ function doubleTapZoom(x, y){
   updateZoomBadge();
 }
 
-/* ---------- touch handlers (только на видео-зоне, панель их не получает) ---------- */
-fsVideoArea.addEventListener("touchstart", function(e){
+fsVideoArea.addEventListener("pointerdown", function(e){
   if (!fsActive) return;
   e.preventDefault();
-  if (isMobile){
+  activePointers[e.pointerId] = { x:e.clientX, y:e.clientY, type:e.pointerType };
+  try{ fsVideoArea.setPointerCapture(e.pointerId); }catch(err){}
+  if (isMobile && e.pointerType === "touch"){
     try{ fsHiddenInput.focus({ preventScroll:true }); }catch(err){}
   }
-  var touches = e.touches;
-  if (touches.length === 1){
-    var t = touches[0];
-    ts.singleStart = { x:t.clientX, y:t.clientY, time:Date.now() };
-    ts.singleMoved = false;
-    ts.panLast = { x:t.clientX, y:t.clientY };
-  } else if (touches.length === 2){
-    ts.singleStart = null;
-    ts.pinchStartDist = touchDist(touches);
-    ts.pinchStartZoom = fsState.zoom;
-    var mid = touchMid(touches);
-    ts.scrollTouchLastY = mid.y;
+  var touchIds = Object.keys(activePointers).filter(function(id){ return activePointers[id].type === "touch"; });
+  if (e.pointerType === "touch" && touchIds.length === 2){
+    gestureCancel();
+    pinch.active = true;
+    pinch.idA = Number(touchIds[0]); pinch.idB = Number(touchIds[1]);
+    var a = activePointers[pinch.idA], b = activePointers[pinch.idB];
+    pinch.startDist = dist(a.x,a.y,b.x,b.y);
+    pinch.startZoom = fsState.zoom;
+    pinch.lastMidY = (a.y+b.y)/2;
+  } else if (!pinch.active && touchIds.length <= 1){
+    var btn = "left";
+    if (e.pointerType === "mouse") btn = (e.button === 2) ? "right" : (e.button === 1 ? "middle" : "left");
+    gestureStart(e.pointerId, e.clientX, e.clientY, btn, e.pointerType === "touch");
   }
 }, { passive:false });
 
-fsVideoArea.addEventListener("touchmove", function(e){
+fsVideoArea.addEventListener("pointermove", function(e){
   if (!fsActive) return;
-  e.preventDefault();
-  var touches = e.touches;
-  if (touches.length === 1 && ts.singleStart){
-    var t = touches[0];
-    var dx = t.clientX - ts.panLast.x;
-    var dy = t.clientY - ts.panLast.y;
-    var totalDx = t.clientX - ts.singleStart.x;
-    var totalDy = t.clientY - ts.singleStart.y;
-    if (Math.abs(totalDx) > 6 || Math.abs(totalDy) > 6) ts.singleMoved = true;
-
-    if (fsState.mode === "cursor"){
-      var now = Date.now();
-      if (now - lastMoveSend > 16){
-        var p = pointToNormalized(t.clientX, t.clientY);
-        sendRaw("move", null, p.x, p.y);
-        lastMoveSend = now;
+  if (!(e.pointerId in activePointers)) {
+    if (fsState.mode === "cursor" && e.pointerType === "mouse" && !gesture.active){
+      var now0 = Date.now();
+      if (now0 - lastMoveSend > 16){
+        var p0 = pointToNormalized(e.clientX, e.clientY);
+        sendRaw("move", null, p0.x, p0.y);
+        lastMoveSend = now0;
       }
-    } else if (fsState.mode === "loupe" && fsState.zoom > 1){
-      fsState.panX -= dx / fsState.zoom;
-      fsState.panY -= dy / fsState.zoom;
-      clampPan();
-      applyTransform();
     }
-    ts.panLast = { x:t.clientX, y:t.clientY };
-  } else if (touches.length === 2){
+    return;
+  }
+  e.preventDefault();
+  activePointers[e.pointerId] = { x:e.clientX, y:e.clientY, type:e.pointerType };
+  if (pinch.active){
+    var a = activePointers[pinch.idA], b = activePointers[pinch.idB];
+    if (!a || !b) return;
     if (fsState.mode === "loupe"){
-      var d = touchDist(touches);
-      if (ts.pinchStartDist > 0){
-        var ratio = d / ts.pinchStartDist;
-        var mid = touchMid(touches);
+      var d = dist(a.x,a.y,b.x,b.y);
+      if (pinch.startDist > 0){
+        var ratio = d / pinch.startDist;
+        var mid = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
         var rect = fsVideoArea.getBoundingClientRect();
         var mx = mid.x - rect.left, my = mid.y - rect.top;
         var zoomOld = fsState.zoom;
-        var zoomNew = clampNum(ts.pinchStartZoom * ratio, 1, 10);
+        var zoomNew = clampNum(pinch.startZoom * ratio, 1, 10);
         var RX = mx/zoomOld + fsState.panX;
         var RY = my/zoomOld + fsState.panY;
         fsState.zoom = zoomNew;
@@ -2144,95 +2294,52 @@ fsVideoArea.addEventListener("touchmove", function(e){
         updateZoomBadge();
       }
     } else {
-      var mid2 = touchMid(touches);
-      if (ts.scrollTouchLastY !== null){
-        var deltaY = ts.scrollTouchLastY - mid2.y;
-        queueScroll(deltaY / 5);
-      }
-      ts.scrollTouchLastY = mid2.y;
+      var mid2y = (a.y+b.y)/2;
+      var deltaY = pinch.lastMidY - mid2y;
+      queueScroll(deltaY/5);
+      pinch.lastMidY = mid2y;
     }
+    return;
   }
-}, { passive:false });
-
-fsVideoArea.addEventListener("touchend", function(e){
-  if (!fsActive) return;
-  e.preventDefault();
-  var remaining = e.touches.length;
-  if (remaining === 0){
-    if (ts.singleStart && !ts.singleMoved){
-      var dt = Date.now() - ts.singleStart.time;
-      if (dt < 500) handleTap(ts.singleStart.x, ts.singleStart.y);
-    }
-    ts.singleStart = null;
-    ts.pinchStartDist = 0;
-    ts.scrollTouchLastY = null;
-  } else if (remaining === 1){
-    var t = e.touches[0];
-    ts.singleStart = { x:t.clientX, y:t.clientY, time:Date.now() };
-    ts.singleMoved = true;
-    ts.panLast = { x:t.clientX, y:t.clientY };
-    ts.pinchStartDist = 0;
-  }
-}, { passive:false });
-
-fsVideoArea.addEventListener("touchcancel", function(){
-  ts.singleStart = null;
-  ts.pinchStartDist = 0;
-  ts.scrollTouchLastY = null;
-}, { passive:false });
-
-/* ---------- mouse handlers (десктоп) ---------- */
-var mouseDragging = false, mouseDragMoved = false, mouseDragStart = null;
-
-fsVideoArea.addEventListener("mousedown", function(e){
-  if (!fsActive) return;
-  mouseDragging = true;
-  mouseDragMoved = false;
-  mouseDragStart = { x:e.clientX, y:e.clientY };
-});
-
-fsVideoArea.addEventListener("mousemove", function(e){
-  if (!fsActive) return;
-  if (fsState.mode === "cursor" && !mouseDragging){
+  if (gesture.active && e.pointerId === gesture.pointerId){
+    gestureMove(e.clientX, e.clientY);
+  } else if (!gesture.active && fsState.mode === "cursor" && e.pointerType === "mouse"){
     var now = Date.now();
     if (now - lastMoveSend > 16){
       var p = pointToNormalized(e.clientX, e.clientY);
       sendRaw("move", null, p.x, p.y);
       lastMoveSend = now;
     }
-  } else if (mouseDragging && fsState.mode === "loupe" && fsState.zoom > 1){
-    var dx = e.clientX - mouseDragStart.x;
-    var dy = e.clientY - mouseDragStart.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) mouseDragMoved = true;
-    fsState.panX -= dx / fsState.zoom;
-    fsState.panY -= dy / fsState.zoom;
-    clampPan();
-    applyTransform();
-    mouseDragStart = { x:e.clientX, y:e.clientY };
-  } else if (mouseDragging && fsState.mode === "cursor"){
-    var now2 = Date.now();
-    if (now2 - lastMoveSend > 16){
-      var p2 = pointToNormalized(e.clientX, e.clientY);
-      sendRaw("move", null, p2.x, p2.y);
-      lastMoveSend = now2;
-    }
   }
-});
+}, { passive:false });
 
-fsVideoArea.addEventListener("mouseup", function(){
-  mouseDragging = false;
-});
-
-fsVideoArea.addEventListener("click", function(e){
+function pointerFinish(e){
   if (!fsActive) return;
-  if (fsState.mode === "loupe"){
-    if (mouseDragMoved){ mouseDragMoved = false; return; }
-    var p = normalizedFromLoupePoint(e.clientX, e.clientY);
-    sendRaw("click", null, p.x, p.y);
-  } else {
-    var p2 = pointToNormalized(e.clientX, e.clientY);
-    sendRaw("click", null, p2.x, p2.y);
+  e.preventDefault();
+  delete activePointers[e.pointerId];
+  try{ fsVideoArea.releasePointerCapture(e.pointerId); }catch(err){}
+
+  if (pinch.active && (e.pointerId === pinch.idA || e.pointerId === pinch.idB)){
+    var touchIds = Object.keys(activePointers).filter(function(id){ return activePointers[id].type === "touch"; });
+    pinch.active = false;
+    if (touchIds.length === 1){
+      var remId = Number(touchIds[0]);
+      var rem = activePointers[remId];
+      gestureStart(remId, rem.x, rem.y, "left", true);
+      gesture.moved = true;
+      clearTimeout(gesture.longPressTimer);
+    }
+    return;
   }
+  if (gesture.active && e.pointerId === gesture.pointerId){
+    gestureEnd(e.clientX, e.clientY);
+  }
+}
+fsVideoArea.addEventListener("pointerup", pointerFinish, { passive:false });
+fsVideoArea.addEventListener("pointercancel", pointerFinish, { passive:false });
+
+fsVideoArea.addEventListener("contextmenu", function(e){
+  if (fsActive) e.preventDefault();
 });
 
 fsVideoArea.addEventListener("wheel", function(e){
