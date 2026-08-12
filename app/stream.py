@@ -63,7 +63,6 @@ def generate_frames():
         # Обязательно останавливаем поток захвата видеокарты при выходе
         if camera is not None:
             camera.stop()
-            sleep(0.3)
             running = False
             try:
                 del camera
