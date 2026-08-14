@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconn
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from app.stream import generate_frames
-from app.executor import allowcommand
+from app.executor import allowcommand, release_all_input
 from app.schemas import CommandRequest, CommandResponse
 from app.security import get_user_auth_token
 from dotenv import  load_dotenv
@@ -52,19 +52,23 @@ async def ws(websocket: WebSocket, token: str):
 
     await websocket.accept()
 
-
-    while True:
-        try:
-            data =  await websocket.receive_json()
-            cmd = CommandRequest(**data) # В класс CommandRequest закидываем всё что нам пришо в data
+    try:
+        while True:
             try:
-                allowcommand(cmd)
-                res = await websocket.send_json({"status": "success", "message": "completed"})
+                data =  await websocket.receive_json()
+                cmd = CommandRequest(**data) # В класс CommandRequest закидываем всё что нам пришо в data
+                try:
+                    allowcommand(cmd)
+                    res = await websocket.send_json({"status": "success", "message": "completed"})
+                except Exception as e:
+                    await websocket.send_json({"status": "error", "message": str(e)})
+            except WebSocketDisconnect as e:
+                break
             except Exception as e:
-                await websocket.send_json({"status": "error", "message": str(e)})
-        except Exception as e:
-            print(e)
-            break
+                print(e)
+                break
+    finally:
+        release_all_input()
 
 @app.get("/stream")
 async def show_stream(token: str):
@@ -82,13 +86,13 @@ async def show_stream(token: str):
 async def ws_audio(websocket: WebSocket, token: str):
     if getenv("API_SECRET_KEY") != token:
         await websocket.close(code=1008)
-        return "error"
+        return
 
 
     await websocket.accept()
 
     SAMPLERATE = 48000
-    CHUNK_SIZE = 1024
+    CHUNK_SIZE = 2048
     # Получаем дефолтный динамик
     default_speaker = soundcard.default_speaker()
     # получаем все микрофоны в виде объекта с микрофонами с глобальным прослушиванием loopback
@@ -103,7 +107,7 @@ async def ws_audio(websocket: WebSocket, token: str):
         await websocket.close(code=1011)
         return
     # Открываем микрофон для записи
-    with mic.recorder(samplerate=SAMPLERATE,channels=1) as rec:
+    with mic.recorder(samplerate=SAMPLERATE,channels=1,blocksize=CHUNK_SIZE) as rec:
         while True:
             try:
                 # data - массив numpy float32
