@@ -61,7 +61,7 @@ async def ws(websocket: WebSocket, token: str):
                 allowcommand(cmd)
                 res = await websocket.send_json({"status": "success", "message": "completed"})
             except Exception as e:
-                await websocket.send_json({f"status": "error", "message": str(e)})
+                await websocket.send_json({"status": "error", "message": str(e)})
         except Exception as e:
             print(e)
             break

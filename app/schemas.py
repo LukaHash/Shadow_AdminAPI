@@ -1,12 +1,12 @@
 from pydantic import BaseModel
-
+from typing import Literal
 
 class CommandRequest(BaseModel):
     action: str
-    parameter: str|None|float = None
+    parameter: str|float|None= None
     x: float |None= None
     y: float | None = None
-    button: str | None = "left"
+    button: Literal["right","left","middle"] | None = "left"
 
 
 
