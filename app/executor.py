@@ -23,13 +23,13 @@ def allowcommand(param: CommandRequest):
 
     if param.action in ("scroll",) and (not isinstance(param.parameter, int)):
         raise ValueError(f"parameter must be integer")
-    if param.x and param.y and (param.x < 0 or param.y < 0):
+    if param.x and param.y and (0.0 <= param.x <= 1.0 or 0.0 <=  param.y <= 1.0):
         raise ValueError("Coordinates can't be negative")
     if param.action not in allow:
         raise ValueError("Unsupported action")
     if param.action in ("press", "up", "down") and (not param.parameter or param.parameter not in pydirectinput.KEYBOARD_MAPPING.keys()):
         raise ValueError(f"Unsupported key: {param.parameter}")
-    if param.action in ("type","scroll","hotkey") and not param.parameter:
+    if param.action in ("type","hotkey") and not param.parameter:
         raise ValueError("param cannot be empty")
     if param.action in ("click","move") and (param.y is None or param.x is None):
         raise ValueError("param cannot be empty")
@@ -49,7 +49,7 @@ def allowcommand(param: CommandRequest):
         pressedmouse.add(param.button)
     if param.action == "mouse_up":
         pressedmouse.discard(param.button)
-    return {f"Action: {param.action} completed"}
+    return {"status": "success", "message": f"Action: {param.action} completed"}
 
 
 def release_all_input():
