@@ -23,8 +23,6 @@ def allowcommand(param: CommandRequest):
 
     if param.action in ("scroll",) and (not isinstance(param.parameter, int)):
         raise ValueError(f"parameter must be integer")
-    if param.x and param.y and (0.0 <= param.x <= 1.0 or 0.0 <=  param.y <= 1.0):
-        raise ValueError("Coordinates can't be negative")
     if param.action not in allow:
         raise ValueError("Unsupported action")
     if param.action in ("press", "up", "down") and (not param.parameter or param.parameter not in pydirectinput.KEYBOARD_MAPPING.keys()):
