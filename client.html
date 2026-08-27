@@ -28,8 +28,15 @@ html,body{
   overscroll-behavior:none;
   height:100%;
 }
+/* ИСПРАВЛЕНО: было position:fixed;inset:0 — шорткат inset не поддерживается
+   старыми движками Smart TV (Chromium < 87 / Safari < 14.1). Без явных
+   top/right/bottom/left position:fixed схлопывается по размеру контента
+   вместо растяжения на весь экран. Заменено на лонгхенд + vw/vh. */
 #bgCanvas{
-  position:fixed;inset:0;z-index:-1;background:var(--bg);
+  position:fixed;
+  top:0;right:0;bottom:0;left:0;
+  width:100vw;height:100vh;
+  z-index:-1;background:var(--bg);
 }
 .container{
   max-width:900px;margin:0 auto;padding:20px;
@@ -57,6 +64,10 @@ h1.title{
   padding:18px;
   margin-bottom:20px;
   box-shadow:0 0 20px rgba(0,240,255,0.08);
+}
+/* Fallback для браузеров без backdrop-filter (часто встречается на старых Smart TV WebKit) */
+@supports not (backdrop-filter: blur(1px)){
+  .card{ background:rgba(10,10,20,0.94); }
 }
 .card-title{
   color:var(--cyan);
@@ -141,6 +152,18 @@ input[type=range]{
 .btn-danger:hover{background:rgba(255,51,68,0.15);box-shadow:0 0 12px rgba(255,51,68,0.5);}
 .btn-small{padding:4px 10px;font-size:11px;}
 
+.btn:focus-visible,
+.tab-btn:focus-visible,
+.icon-btn:focus-visible,
+.fs-panel button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.quick-btn:focus-visible,
+.hotkey-btn:focus-visible{
+  outline:3px solid var(--green);
+  outline-offset:2px;
+}
+
 .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
 .tab-btn{
   background:transparent;border:1px solid #223046;color:#89a;
@@ -185,8 +208,18 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
 .log-error{color:var(--red);}
 .log-warn{color:var(--amber);}
 
+/* ИСПРАВЛЕНО (ГЛАВНЫЙ БАГ): было position:fixed;inset:0 — на старых движках
+   Smart TV (Chromium < 87, до конца 2020) свойство inset не парсится вообще.
+   Без явных top/right/bottom/left position:fixed схлопывается по размеру
+   контента и встаёт в статическую позицию документа вместо растяжения на
+   весь экран — именно поэтому панель "Клик/Курсор/Лупа" оказывалась
+   маленьким блоком посреди страницы, а видео-область (flex:1) схлопывалась
+   в 0 по высоте, т.к. родитель не имел заданной высоты. */
 .fs-overlay{
-  position:fixed;inset:0;background:#000;z-index:10000;
+  position:fixed;
+  top:0;right:0;bottom:0;left:0;
+  width:100vw;height:100vh;
+  background:#000;z-index:10000;
   display:none;
   flex-direction:column;
   touch-action:none;
@@ -208,6 +241,11 @@ img.preview-img{width:100%;max-height:420px;object-fit:contain;display:block;bac
   background:#0a0a12;
   border-bottom:1px solid #1c2740;
   position:relative;z-index:5;
+}
+/* Fallback: если env() не поддерживается, вся декларация padding-top выше
+   невалидна и откатывается к 0 — задаём безопасное значение явно. */
+@supports not (padding-top: env(safe-area-inset-top)){
+  .fs-panel{ padding-top:8px; padding-left:10px; padding-right:10px; }
 }
 .fs-panel button{
   flex:0 0 auto;
@@ -255,6 +293,19 @@ img.fs-img{
   font-size:16px;pointer-events:none;
 }
 
+@media (min-width:1600px){
+  .container{ max-width:1600px; }
+  h1.title{ font-size:36px; }
+  .card{ padding:28px; }
+  .card-title{ font-size:19px; }
+  label{ font-size:14px; }
+  .hint{ font-size:13px; }
+  .btn{ padding:14px 22px; font-size:16px; }
+  .quick-btn{ padding:16px 8px; font-size:17px; }
+  .hotkey-btn{ padding:16px 8px; font-size:16px; }
+  input[type=text],input[type=password],textarea{ font-size:19px; padding:14px; }
+}
+
 @media (max-width:600px){
   .conn-row{flex-direction:column;}
   .conn-actions{flex-direction:column;align-items:flex-start;}
@@ -297,6 +348,13 @@ img.fs-img{
         <span id="statusText">offline</span>
       </div>
     </div>
+    <div class="conn-actions" style="margin-top:10px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#88c;margin:0;">
+        <input type="checkbox" id="tvModeCheckbox" style="width:auto;">
+        Режим ТВ / пульта (включи, если физическая клавиатура не работает в fullscreen)
+      </label>
+    </div>
+    <div class="hint">Если к ТВ подключены клавиатура и мышь напрямую — включи этот чекбокс: автоопределение Smart TV по User-Agent ненадёжно и может ошибочно посчитать ТВ мобильным тач-устройством, отключив обработку физической клавиатуры.</div>
   </div>
 
   <div class="card">
@@ -454,8 +512,14 @@ img.fs-img{
 (function(){
 "use strict";
 
-var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function autoDetectMobile(){
+  var ua = navigator.userAgent || "";
+  var isTV = /SmartTV|Tizen|Web0S|WebOS|BRAVIA|AFT[A-Z0-9]|GoogleTV|CrKey|HbbTV|NetCast|VIDAA|AndroidTV/i.test(ua);
+  if (isTV) return false;
+  return /Android|iPhone|iPad|iPod/i.test(ua) ||
+         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+var isMobile = autoDetectMobile();
 
 function clampNum(v, min, max){
   return Math.min(max, Math.max(min, v));
@@ -531,6 +595,7 @@ var toggleTokenBtn = document.getElementById("toggleTokenBtn");
 var connectBtn = document.getElementById("connectBtn");
 var statusDot = document.getElementById("statusDot");
 var statusText = document.getElementById("statusText");
+var tvModeCheckbox = document.getElementById("tvModeCheckbox");
 
 var smartArea = document.getElementById("smartArea");
 var keysArea = document.getElementById("keysArea");
@@ -581,6 +646,40 @@ function log(msg, type){
 }
 clearLogsBtn.addEventListener("click", function(){ logsEl.innerHTML = ""; });
 
+/* ===================== ВСТРОЕННАЯ ДИАГНОСТИКА =====================
+   Раз нет доступа к реальному ТВ для запуска тестов — приложение само
+   пишет в лог реальные данные среды при загрузке. Это даёт настоящую
+   телеметрию с устройства вместо догадок. */
+function runStartupDiagnostics(){
+  log("── Диагностика окружения ──", "info");
+  log("UA: " + navigator.userAgent, "info");
+  log("Viewport: " + window.innerWidth + "x" + window.innerHeight, "info");
+  try{
+    if (window.CSS && CSS.supports){
+      log("CSS inset поддерживается: " + CSS.supports("inset", "0"), "info");
+    } else {
+      log("CSS.supports недоступен — очень старый движок", "warn");
+    }
+  } catch(e){ log("Ошибка проверки CSS.supports: " + e.message, "warn"); }
+  var fsEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled ||
+                  document.mozFullScreenEnabled || document.msFullscreenEnabled || false;
+  log("Fullscreen API доступен: " + fsEnabled, "info");
+  log("Автоопределение устройства: " + (isMobile ? "мобильное/тач" : "ПК/клавиатура"), "info");
+  log("Протокол страницы: " + window.location.protocol, "info");
+  log("──────────────────────────", "info");
+}
+runStartupDiagnostics();
+
+tvModeCheckbox.addEventListener("change", function(){
+  if (tvModeCheckbox.checked){
+    isMobile = false;
+    log("Режим ТВ/пульта включён вручную: физическая клавиатура/хоткеи в fullscreen активны", "info");
+  } else {
+    isMobile = autoDetectMobile();
+    log("Автоопределение устройства: " + (isMobile ? "мобильное/тач" : "ПК/клавиатура"), "info");
+  }
+});
+
 function bindToggle(inputEl, btnEl){
   btnEl.addEventListener("click", function(){
     if (inputEl.type === "password"){
@@ -595,12 +694,6 @@ function bindToggle(inputEl, btnEl){
 bindToggle(hostInput, toggleHostBtn);
 bindToggle(tokenInput, toggleTokenBtn);
 
-/* ===================== КАРТА КЛАВИШ =====================
-   ИСПРАВЛЕНО: Comma/Period теперь шлют буквальные символы "," и "."
-   вместо словесных "comma"/"period" — pydirectinput.KEYBOARD_MAPPING
-   (scan-code based) использует именно литеральные символы для клавиш
-   пунктуации, а не их словесные названия. Именно это было причиной
-   ошибки "Unsupported key" при нажатии , и . */
 var codeToKey = {
   "Enter": "enter",
   "NumpadEnter": "enter",
@@ -731,20 +824,27 @@ function setStatus(state){
   statusText.textContent = state;
 }
 
+function getWsScheme(){
+  return (window.location.protocol === "https:") ? "wss://" : "ws://";
+}
+function getHttpScheme(){
+  return (window.location.protocol === "https:") ? "https://" : "http://";
+}
+
 function getWsUrl(){
   var host = hostInput.value.trim() || "localhost";
   var token = tokenInput.value.trim();
-  return "ws://" + host + ":8000/ws/execute?token=" + encodeURIComponent(token);
+  return getWsScheme() + host + ":8000/ws/execute?token=" + encodeURIComponent(token);
 }
 function getStreamUrl(){
   var host = hostInput.value.trim() || "localhost";
   var token = tokenInput.value.trim();
-  return "http://" + host + ":8000/stream?token=" + encodeURIComponent(token);
+  return getHttpScheme() + host + ":8000/stream?token=" + encodeURIComponent(token);
 }
 function getAudioWsUrl(){
   var host = hostInput.value.trim() || "localhost";
   var token = tokenInput.value.trim();
-  return "ws://" + host + ":8000/ws/audio?token=" + encodeURIComponent(token);
+  return getWsScheme() + host + ":8000/ws/audio?token=" + encodeURIComponent(token);
 }
 
 function sendRaw(action, parameter, x, y, button){
@@ -953,12 +1053,7 @@ stopStreamBtn.addEventListener("click", function(){
   stopAudioFull();
 });
 
-/* ===================== АУДИО СТРИМ (Web Audio API) =====================
-   Формат данных сервера: сырой PCM, int16 little-endian, mono, 48000Hz,
-   чанк = 1024 сэмпла = 2048 байт, без заголовков (см. /ws/audio backend).
-   Проигрывание — техника непрерывного шедулинга AudioBufferSourceNode
-   "встык" по временной шкале AudioContext, с автоматической
-   ресинхронизацией при сетевых подвисаниях. */
+/* ===================== АУДИО СТРИМ (Web Audio API) ===================== */
 var audioWs = null;
 var audioCtx = null;
 var gainNode = null;
@@ -1128,13 +1223,29 @@ var fsActive = false;
 var fsState = { mode: "click", zoom: 1, panX: 0, panY: 0 };
 var lastMoveSend = 0;
 
+/* ИСПРАВЛЕНИЕ ГЛАВНОГО БАГА (доп. подстраховка поверх CSS-фикса):
+   принудительно проставляем пиксельные размеры оверлея напрямую из
+   window.innerWidth/innerHeight. На случай если на конкретном движке ТВ
+   даже vw/vh для position:fixed считаются некорректно — это гарантирует
+   растяжение на весь экран независимо от особенностей CSS-движка. */
+function syncOverlaySize(){
+  fsOverlay.style.width = window.innerWidth + "px";
+  fsOverlay.style.height = window.innerHeight + "px";
+}
+
 function requestNativeFullscreen(el){
   var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
   if (fn){
     try{
       var res = fn.call(el);
-      if (res && res.catch) res.catch(function(){});
-    } catch(e){}
+      if (res && res.catch) res.catch(function(e){
+        log("Нативный fullscreen недоступен (" + (e && e.message ? e.message : "ошибка") + "), используется CSS-режим", "warn");
+      });
+    } catch(e){
+      log("Нативный fullscreen недоступен, используется CSS-режим", "warn");
+    }
+  } else {
+    log("Fullscreen API не поддерживается этим браузером, используется CSS-режим", "warn");
   }
 }
 function exitNativeFullscreen(){
@@ -1155,6 +1266,7 @@ function exitNativeFullscreen(){
     if (fsActive && !isFs){
       history.back();
     }
+    if (fsActive) syncOverlaySize();
   });
 });
 
@@ -1230,11 +1342,14 @@ function enterFullscreen(){
   streamImg.classList.add("fs-img");
   fsVideoArea.insertBefore(streamImg, fsVideoArea.firstChild);
   fsOverlay.classList.add("active");
+  syncOverlaySize();
   document.documentElement.style.overflow = "hidden";
   document.body.style.overflow = "hidden";
   history.pushState({ shadowFs: true }, "");
   setMode("click");
   requestNativeFullscreen(fsOverlay);
+  log("Fullscreen: overlay " + fsOverlay.offsetWidth + "x" + fsOverlay.offsetHeight +
+      ", video-area " + fsVideoArea.offsetWidth + "x" + fsVideoArea.offsetHeight, "info");
 }
 function exitFullscreen(){
   if (!fsActive) return;
@@ -1248,6 +1363,8 @@ function exitFullscreen(){
   streamImg.classList.add("preview-img");
   streamPreviewContainer.appendChild(streamImg);
   fsOverlay.classList.remove("active");
+  fsOverlay.style.width = "";
+  fsOverlay.style.height = "";
   document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
   exitNativeFullscreen();
@@ -1269,6 +1386,7 @@ fsBtn.addEventListener("click", enterFullscreen);
 window.addEventListener("orientationchange", function(){
   if (!fsActive) return;
   setTimeout(function(){
+    syncOverlaySize();
     fsState.zoom = 1; fsState.panX = 0; fsState.panY = 0;
     applyTransform();
     updateZoomBadge();
@@ -1276,6 +1394,7 @@ window.addEventListener("orientationchange", function(){
 });
 window.addEventListener("resize", function(){
   if (!fsActive) return;
+  syncOverlaySize();
   clampPan();
   applyTransform();
 });
@@ -1319,7 +1438,7 @@ function queueScroll(delta){
   if (!scrollTimer){
     scrollTimer = setTimeout(function(){
       if (Math.abs(scrollAccum) >= 1){
-        sendRaw("scroll", String(Math.round(scrollAccum)));
+        sendRaw("scroll", Math.round(scrollAccum));
       }
       scrollAccum = 0;
       scrollTimer = null;

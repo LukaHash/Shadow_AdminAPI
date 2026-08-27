@@ -111,9 +111,13 @@ async def ws_audio(websocket: WebSocket, token: str):
             try:
                 # data - массив numpy float32
                 data = await asyncio.to_thread(rec.record,numframes=CHUNK_SIZE)
-                data_int16 = (data * 32767).astype(np.int16)
-                audio_bytes = data_int16.tobytes()
-                await  websocket.send_bytes(audio_bytes)
+                if data is not None and data.size > 0:
+                    data_int16 = (data * 32767).astype(np.int16)
+                    audio_bytes = data_int16.tobytes()
+                    if audio_bytes:
+                        await  websocket.send_bytes(audio_bytes)
+                else:
+                    continue
             except WebSocketDisconnect as e:
                 print(e)
                 break

@@ -21,8 +21,12 @@ def allowcommand(param: CommandRequest):
              "hotkey": lambda: pyautogui.hotkey(*param.parameter.split("+")),
              }
 
-    if param.action in ("scroll",) and (not isinstance(param.parameter, int)):
-        raise ValueError(f"parameter must be integer")
+    if param.action == "scroll":
+        try:
+            parsed = int(param.parameter)
+        except (TypeError, ValueError):
+            raise ValueError("parameter must be integer")
+        param.parameter = parsed
     if param.action not in allow:
         raise ValueError("Unsupported action")
     if param.action in ("press", "up", "down") and (not param.parameter or param.parameter not in pydirectinput.KEYBOARD_MAPPING.keys()):
